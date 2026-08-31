@@ -128,12 +128,16 @@ def check_http_fetch():
     경우는 예외로 FAIL 이다. 그건 네트워크 제약이 아니라 이 환경에서 HTTPS 수집이
     전부 불가능하다는 뜻인데, WARN 으로 두면 '전체 통과' 로 보고돼 그냥 지나가게 된다.
     """
+    # 수집 때와 같은 조건으로 확인한다 — crawl_script.py 도 utils 를 import 하면서
+    # 같은 처리를 거친다. 여기서만 통과하고 수집에서 죽는 상황을 만들지 않는다.
+    # 실패해도 fetch 자체는 시도한다(아래 try 안에 두면 import 오류가 네트워크 경고로 둔갑한다).
     try:
-        # 수집 때와 같은 조건으로 확인한다 — crawl_script.py 도 utils 를 import 하면서
-        # 같은 처리를 거친다. 여기서만 통과하고 수집에서 죽는 상황을 만들지 않는다.
         import utils
         utils.ensure_ascii_ca_bundle()
+    except Exception:
+        pass
 
+    try:
         from scrapling.fetchers import Fetcher
         page = Fetcher().get("https://httpbin.org/html")
         status = getattr(page, "status", None)
