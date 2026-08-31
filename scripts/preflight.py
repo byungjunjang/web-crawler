@@ -117,20 +117,47 @@ def check_chromium_launch():
         return False
 
 
+# libcurl 이 CA 파일을 못 열었을 때의 서명. 네트워크 문제가 아니라 설치 문제다.
+_CA_ERROR_MARKERS = ("error adding trust anchors", "CAfile")
+
+
 def check_http_fetch():
-    """가벼운 HTTP fetch (네트워크 필요). 실패는 WARN — 오프라인/방화벽일 수 있음."""
+    """가벼운 HTTP fetch (네트워크 필요).
+
+    실패는 원칙적으로 WARN 이다 — 오프라인/방화벽일 수 있다. 다만 CA 번들을 못 읽은
+    경우는 예외로 FAIL 이다. 그건 네트워크 제약이 아니라 이 환경에서 HTTPS 수집이
+    전부 불가능하다는 뜻인데, WARN 으로 두면 '전체 통과' 로 보고돼 그냥 지나가게 된다.
+    """
+    # 수집 때와 같은 조건으로 확인한다 — crawl_script.py 도 utils 를 import 하면서
+    # 같은 처리를 거친다. 여기서만 통과하고 수집에서 죽는 상황을 만들지 않는다.
+    # 실패해도 fetch 자체는 시도한다(아래 try 안에 두면 import 오류가 네트워크 경고로 둔갑한다).
+    try:
+        import utils
+        utils.ensure_ascii_ca_bundle()
+    except Exception:
+        pass
+
     try:
         from scrapling.fetchers import Fetcher
         page = Fetcher().get("https://httpbin.org/html")
         status = getattr(page, "status", None)
         if status == 200:
             record("CORE", "PASS", "HTTP fetch (httpbin)", "status 200")
-        else:
-            record("CORE", "WARN", "HTTP fetch (httpbin)", f"status={status}")
+            return True
+        record("CORE", "WARN", "HTTP fetch (httpbin)", f"status={status}")
+        return True
     except Exception as e:
+        msg = str(e).splitlines()[0]
+        if any(marker in str(e) for marker in _CA_ERROR_MARKERS):
+            record("CORE", "FAIL", "HTTP fetch (httpbin)",
+                   f"CA 번들을 읽지 못했습니다: {msg[:60]}",
+                   "경로에 한글이 있으면 발생합니다. utils.ensure_ascii_ca_bundle() 이 "
+                   "처리하는지 확인하거나 CURL_CA_BUNDLE 을 ASCII 경로로 지정하세요")
+            return False
         record("CORE", "WARN", "HTTP fetch (httpbin)",
-               f"네트워크 제한 가능: {str(e).splitlines()[0][:60]}",
+               f"네트워크 제한 가능: {msg[:60]}",
                "오프라인/방화벽이면 정상. 연결 확인 후 재시도")
+        return True
 
 
 # ------------- AGENT-BROWSER -------------
@@ -196,7 +223,7 @@ def main():
     core_ok &= check_fetchers()
     core_ok &= check_chromium_launch()
     if not args.no_network:
-        check_http_fetch()  # WARN-only
+        core_ok &= check_http_fetch()
 
     ab_ok = True
     if not args.core_only:
