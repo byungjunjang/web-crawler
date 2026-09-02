@@ -244,9 +244,11 @@ def test_robots_reports_crawl_delay(monkeypatch):
 
 
 def test_robots_missing_file_allows(monkeypatch):
-    """robots.txt 가 404 면 제한이 없는 것으로 본다 (표준 동작)."""
+    """robots.txt 가 404 면 제한이 없는 것으로 본다 (표준 동작) — 에러가 아니다."""
     monkeypatch.setattr("utils._fetch_robots", _fake_fetch("", 404))
-    assert check_robots("https://example.com/")["allowed"] is True
+    result = check_robots("https://example.com/")
+    assert result["allowed"] is True
+    assert result["error"] is None
 
 
 def test_robots_network_error_is_reported_not_swallowed(monkeypatch):
@@ -257,6 +259,47 @@ def test_robots_network_error_is_reported_not_swallowed(monkeypatch):
     result = check_robots("https://example.com/")
     assert result["error"] is not None
     assert result["allowed"] is True     # 차단 근거가 없으므로 막지는 않는다
+
+
+# ── 결함 2 (2026-09-01 실측, books.toscrape.com): robots.txt 404 가 "확인 못 함" 으로 보고됨 ──
+# urllib 은 4xx/5xx 에서 반환하지 않고 HTTPError 를 던진다. _fetch_robots 를 통째로 가짜로 바꾼
+# 위 테스트들은 그 경로를 건너뛰므로, 여기서는 urlopen 자체를 모킹해 진짜 _fetch_robots 를 태운다.
+
+def _raise_http_error(code, reason):
+    from urllib.error import HTTPError
+
+    def _urlopen(req, timeout=10):
+        raise HTTPError(req.full_url, code, reason, hdrs=None, fp=None)
+    return _urlopen
+
+
+def test_robots_http_404_through_real_fetch_is_allowed_without_error(monkeypatch):
+    """404 = 제한 없음 = 에러 아님. _fetch_robots 가 아니라 urlopen 을 모킹해 실제 경로를 검증한다."""
+    monkeypatch.setattr("urllib.request.urlopen", _raise_http_error(404, "Not Found"))
+    result = check_robots("https://example.com/")
+    assert result["allowed"] is True
+    assert result["error"] is None
+
+
+def test_robots_http_5xx_through_real_fetch_is_still_reported(monkeypatch):
+    """5xx 는 '가져오지 못한 것' 이다 — 404 픽스가 이 구분을 지우면 안 된다."""
+    monkeypatch.setattr("urllib.request.urlopen", _raise_http_error(503, "Service Unavailable"))
+    result = check_robots("https://example.com/")
+    assert result["error"] is not None
+    assert "503" in result["error"]
+    assert result["allowed"] is True     # 차단 근거가 없으므로 막지는 않는다
+
+
+def test_robots_url_error_through_real_fetch_is_still_reported(monkeypatch):
+    """HTTPError 가 아닌 네트워크 예외(URLError)는 그대로 error 로 올라온다."""
+    from urllib.error import URLError
+
+    def _urlopen(req, timeout=10):
+        raise URLError("connection refused")
+    monkeypatch.setattr("urllib.request.urlopen", _urlopen)
+    result = check_robots("https://example.com/")
+    assert result["error"] is not None
+    assert result["allowed"] is True
 
 
 # ── P2-2: PII 스키마 감지 ──
