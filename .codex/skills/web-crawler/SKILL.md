@@ -399,15 +399,39 @@ output/<도메인>/<주제_YYYYMMDD_HHMMSS>/
 
 ### 셀렉터 자가 치유
 
-```python
-# 첫 수집: 핑거프린트 저장
-items = page.css("<SELECTOR>", auto_save=True,
-    storage_args={"storage_file": "./fingerprints/elements_storage.db"})
+> **`storage_args` 는 `.css()` 인자가 아니다.** requirements.txt 가 고정한 scrapling 0.4.x 의
+> `Selector.css(selector, identifier, adaptive, auto_save, percentage)` 에 그런 키워드가 없어
+> `TypeError: Selector.css() got an unexpected keyword argument 'storage_args'` 로 죽는다
+> (2026-09-01 books.toscrape.com 실측). 저장소 경로는 **파서를 만드는 쪽** — `Fetcher.configure()`
+> (파서 전용 configure 가 바로 이 용도다) 또는 `Adaptor(...)` 생성자 — 에서 `adaptive=True` 와
+> 함께 지정한다. 생성 시 `adaptive=True` 가 없으면 `auto_save`/`adaptive` 는 경고만 남기고 무시된다.
 
-# 이후: 자가 치유
-items = page.css("<SELECTOR>", adaptive=True, auto_save=True,
-    storage_args={"storage_file": "./fingerprints/elements_storage.db"})
+```python
+from pathlib import Path
+from scrapling.fetchers import Fetcher
+from utils import plain_get
+
+STORAGE = {"storage_file": "./fingerprints/elements_storage.db",
+           "url": "<URL>"}   # url 을 빼면 도메인 구분 없이 'default' 버킷 하나에 쌓인다
+Path("./fingerprints").mkdir(exist_ok=True)   # 디렉터리가 없으면 sqlite 가 페이지 파싱 시점에 죽는다
+Fetcher.configure(adaptive=True, storage_args=STORAGE)   # 전역 · 파서 전용. 요청별로는 selector_config={...}
+page = plain_get("<URL>")   # plain_get 은 Fetcher.get 을 감싼 것이라 위 설정을 탄다 (DynamicFetcher 도 같은 configure 보유)
+
+# 첫 수집: 핑거프린트 저장
+items = page.css("<SELECTOR>", auto_save=True)
+
+# 이후: 자가 치유 — 셀렉터가 깨지면 저장된 핑거프린트로 재탐색
+try:
+    items = page.css("<SELECTOR>", adaptive=True, auto_save=True)
+except Exception as exc:   # sqlite 잠김·권한 등 저장소 문제로 수집을 죽이지 않는다 — 자가치유만 포기
+    logger.warning(f"자가치유 저장소 사용 불가, 일반 셀렉터로 계속: {exc}")
+    items = page.css("<SELECTOR>")
 ```
+
+- 경로를 지정하지 않으면 기본값은 site-packages 안의 `scrapling/elements_storage.db` 다 — 가상환경을
+  지우면 핑거프린트도 사라지므로 반드시 `./fingerprints/` 로 지정한다.
+- **세션(`plain_session`/`FetcherSession`)은 `Fetcher.configure()` 를 읽지 않는다** — 세션 자체에
+  `plain_session(selector_config={"adaptive": True, "storage_args": STORAGE})` 로 넘긴다.
 
 ---
 

@@ -309,7 +309,7 @@ chrome.exe --remote-debugging-port=9222 \
 - `scripts/export_excel.py`를 import하여 엑셀 출력
 - `scripts/chrome_cdp.py`는 `antibot_strategy: chrome_cdp`(사다리 6단)로 기록된 도메인에서 사용 — 통지 게이트를 이미 넘은 경우
 - 수집 스크립트는 해당 작업의 출력 디렉터리 하에서 작업 (아래 출력 위치 참조)
-- 셀렉터 핑거프린트는 `storage_args={"storage_file": "./fingerprints/elements_storage.db"}` 경로 사용
+- 셀렉터 핑거프린트 저장소는 **파서를 만드는 쪽**에서 지정 — `Fetcher.configure(adaptive=True, storage_args={"storage_file": "./fingerprints/elements_storage.db", "url": url})`. `.css()` 에 `storage_args` 를 넘기면 scrapling 0.4.x 에서 TypeError (SKILL.md § 셀렉터 자가 치유)
 - **수집 성공 후 반드시 profile.json save/갱신** — 새로 알아낸 endpoint/selector/notes는 누적, `last_used`만 업데이트하지 말 것 (Step 5-A 게이트)
 - **새 도메인이면 `python scripts/sync_domain_list.py` 실행** — CLAUDE.md/README.md의 "알려진 도메인" 목록은 profile.json에서 생성된다. 손으로 고치지 말 것 (`scripts/test_sync_domain_list.py`가 어긋남을 잡는다)
 
