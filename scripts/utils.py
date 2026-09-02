@@ -348,11 +348,24 @@ def plain_dynamic(url: str, **kw):
 
 # ── robots.txt — 표지판이지 잠금장치가 아니지만, 무시했다는 사실은 정황이 된다 ──
 def _fetch_robots(url: str, timeout: int = 10):
-    """robots.txt 를 가져와 (본문, status) 반환. 테스트에서 monkeypatch 한다."""
+    """robots.txt 를 가져와 (본문, status) 반환. 테스트에서 monkeypatch 한다.
+
+    urllib 은 4xx/5xx 에서 반환하지 않고 HTTPError 를 던진다. 그대로 두면 check_robots 의
+    404 분기에 영원히 도달하지 못해 "robots.txt 없음" 이 "가져오지 못함(error)" 으로 보고된다
+    (2026-09-01 books.toscrape.com 실측). 그래서 404 HTTPError 만 ("", 404) 로 돌려주고,
+    그 외 HTTPError(5xx 등)·URLError·timeout·OSError 같은 진짜 '가져오지 못한' 예외는 그대로 던진다 —
+    허용된 것(allowed)과 가져오지 못한 것(error)의 구분은 호출자 몫이다.
+    """
+    from urllib.error import HTTPError
     from urllib.request import Request, urlopen
     req = Request(url, headers={"User-Agent": "web-crawler-agent"})
-    with urlopen(req, timeout=timeout) as resp:      # noqa: S310 (http/https만 들어온다)
-        return resp.read().decode("utf-8", errors="replace"), resp.status
+    try:
+        with urlopen(req, timeout=timeout) as resp:      # noqa: S310 (http/https만 들어온다)
+            return resp.read().decode("utf-8", errors="replace"), resp.status
+    except HTTPError as exc:
+        if exc.code == 404:
+            return "", exc.code           # 파일 없음 = 제한 없음. 4xx 응답 본문은 robots 가 아니다
+        raise                             # 5xx 등은 "가져오지 못함" — 호출자가 error 로 보고한다
 
 
 def check_robots(url: str, user_agent: str = "*") -> dict:
