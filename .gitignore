@@ -23,6 +23,7 @@ fingerprints/**
 !fingerprints/www_fss_or_kr/profile.json
 !fingerprints/www_gsmarena_com/profile.json
 !fingerprints/www_k-startup_go_kr/profile.json
+!fingerprints/www_kdca_go_kr/profile.json
 !fingerprints/www_kurly_com/profile.json
 # END GENERATED: public-profiles
 
