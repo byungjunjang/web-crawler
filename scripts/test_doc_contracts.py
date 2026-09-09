@@ -23,7 +23,7 @@ import pytest
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
-# 실행 계약을 담은 문서. .codex 는 .claude 의 생성물이라 원본만 본다.
+# 실행 계약을 담은 문서. .agents와 .codex는 .claude의 생성물이라 원본만 본다.
 DOC_FILES = [
     REPO / "CLAUDE.md",
     REPO / "AGENTS.md",

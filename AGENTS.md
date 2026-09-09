@@ -1,6 +1,6 @@
-# AGENTS.md — web-crawler (Codex / Claude Code dual-host)
+# AGENTS.md — web-crawler (Claude Code / Codex / ChatGPT Work)
 
-이 레포는 URL과 수집 항목을 받아 사이트를 정찰·대량수집하고 엑셀로 내보내는 범용 웹 크롤링 에이전트다. **`CLAUDE.md`와 `.codex/skills/web-crawler/SKILL.md`가 *어떻게*에 대한 SSOT다.** 이 파일은 Codex용 **실행 계약**이다 — Claude Code는 Skill 런타임으로 같은 규율을 자동 적용받지만, Codex는 Skill 런타임이 없으므로 이 파일이 대신 강제한다.
+이 레포는 URL과 수집 항목을 받아 사이트를 정찰·대량수집하고 엑셀로 내보내는 범용 웹 크롤링 에이전트다. **`CLAUDE.md`와 `.claude/skills/web-crawler/SKILL.md`가 *어떻게*에 대한 정본(SSOT)**이고, **`.agents/skills/web-crawler/SKILL.md`는 Codex가 자동 발견하고 ChatGPT Work 로컬이 이 계약을 통해 사용하는 생성 미러**다. 이 파일은 Codex·ChatGPT Work용 프로젝트 실행 계약이다.
 
 ## 최초 환경 셋업 (클론 직후 1회)
 
@@ -33,17 +33,24 @@ python scripts\preflight.py              # 검증: core / agent-browser 분리 P
 - pip이 진행 없이 멈춘 듯하면 정상(대용량 휠 다운로드). 진행 확인: `.\.venv\Scripts\python.exe -m pip install -r requirements.txt --progress-bar off -v`.
 - 검증은 `scripts/preflight.py`가 담당: **core(Python/Scrapling/Playwright)**와 **agent-browser**를 분리 보고. core 통과·agent-browser 실패면 "전체 설치 미완료"(종료코드 1). 전체 가이드는 `README.md` "처음 설치하기".
 
+## 호스트별 시작 방법
+
+- **Claude Code / Claude Cowork**: 기존 `.claude/skills/` 정본을 사용한다.
+- **Codex CLI·IDE·데스크톱**: 이 저장소 루트에서 시작한다. Codex가 `AGENTS.md`와 `.agents/skills/web-crawler`를 발견한다.
+- **ChatGPT Work 로컬**: ChatGPT 데스크톱 앱에서 이 저장소를 주 폴더로 열고 **Work locally**로 실행한다. 자연어로 URL과 수집 항목을 요청하거나, 스킬 선택기에 보이면 `@web-crawler`를 선택한다. 로컬 셸·브라우저 권한이 있어야 전 파이프라인을 실행할 수 있다.
+- **ChatGPT Work 클라우드/호스티드**: 같은 데스크톱 앱에서 열어도 로컬 작업으로 바뀌지 않는다. 이 저장소의 `.venv`, 로컬 브라우저, CDP 세션을 상속하지 못하므로 전 파이프라인은 **Work locally**에서 실행한다.
+
 ## 스킬 소스 (생성 미러)
 
-- **`.claude/skills/`가 정본. `.codex/skills/`는 생성 미러**다 — 텍스트 안의 `.claude/skills` 경로만 `.codex/skills`로 치환된 것 외엔 byte-identical.
-- **`.codex/skills/`를 직접 수정하지 말 것.** `.claude/skills/`를 고친 뒤 `python scripts/sync_codex_mirror.py`를 실행해 미러를 재생성한다. (어긋남 확인: `python scripts/sync_codex_mirror.py --check`)
+- **`.claude/skills/`가 정본**이다. **`.agents/skills/`는 Codex 공식·ChatGPT Work 로컬 공유 생성 미러**, **`.codex/skills/`는 기존 설치 호환 생성 미러**다. 텍스트 안의 `.claude/skills` 경로만 각 미러 경로로 치환되고 나머지는 byte-identical이다.
+- **두 미러를 직접 수정하지 말 것.** `.claude/skills/`를 고친 뒤 `python scripts/sync_codex_mirror.py`를 실행해 둘을 재생성한다. (어긋남 확인: `python scripts/sync_codex_mirror.py --check`)
 - **문서의 "알려진 도메인" 목록도 생성물**이다 — `fingerprints/*/profile.json`이 SSOT. 새 프로필을 추가했으면 `python scripts/sync_domain_list.py`로 CLAUDE.md/README.md를 재생성한다. (어긋남 확인: `python scripts/sync_domain_list.py --check` / 테스트: `scripts/test_sync_domain_list.py`)
 
 ## 크롤링 요청을 받으면 — 필수 절차
 
 사용자가 "크롤링/스크래핑/수집/~를 모아줘/입찰공고 수집" 등을 요청하면:
 
-1. **즉흥 처리 금지.** `.codex/skills/web-crawler/SKILL.md`를 단계대로 실행한다. 절차를 요약하고 임의로 구현하지 않는다. **폴백 재구현 금지** — `requests`/`urllib`/`httpx`/`BeautifulSoup`로 직접 수집하거나 인라인으로 긁지 않는다. 수집은 항상 생성한 `crawl_script.py` 안의 **Scrapling 또는 Playwright**로만 한다.
+1. **즉흥 처리 금지.** `.agents/skills/web-crawler/SKILL.md`를 단계대로 실행한다. 절차를 요약하고 임의로 구현하지 않는다. **폴백 재구현 금지** — `requests`/`urllib`/`httpx`/`BeautifulSoup`로 직접 수집하거나 인라인으로 긁지 않는다. 수집은 항상 생성한 `crawl_script.py` 안의 **Scrapling 또는 Playwright**로만 한다.
 
 2. **절대 규칙 0 — 도메인 히스토리 우선.** 정찰하기 전에 반드시 `fingerprints/<sanitized_domain>/profile.json`과 `output/<도메인>/`을 먼저 본다. 프로필이 있으면 `notes`/`fetcher_type`/`antibot_strategy`를 그대로 채택하고 정찰을 건너뛰어 Step 3으로 점프한다. profile.json이 있는데 무시하고 정찰부터 다시 하는 것은 금지(5~20분 비싼 작업 반복). 알려진 도메인 목록은 `CLAUDE.md` 의 생성 블록 참조.
 
@@ -64,7 +71,7 @@ python scripts\preflight.py              # 검증: core / agent-browser 분리 P
 
 ## 안전 — 하드룰 (위반 금지)
 
-- **자동 접근 차단을 만나면 통지 후 사용자 선택** — CAPTCHA·WAF·봇 탐지는 법적으로 같은 보호조치다. 어느 쪽이든 **자동으로 넘어가지 않고 이음매를 통과할 때마다 한 번 알리고 사용자가 고른다**. '진행' 이면 그대로 간다 — 근거를 묻지도 검증하지도 않는다. 통지를 면제하는 것은 도메인이 아니라 그 프로필이 **지금 들고 있는** `consent` 기록이다(sticky) — 사다리 A 로 내려가 프로필이 배포 대상이 되면 그 기록은 지워지므로(사용자의 통지 이력을 배포되는 파일에 실어 보내지 않는다), 사이트가 나중에 새로 막으면 다시 통지한다. 상세는 `.codex/skills/web-crawler/SKILL.md` Step 3 "이음매 통지 게이트".
+- **자동 접근 차단을 만나면 통지 후 사용자 선택** — CAPTCHA·WAF·봇 탐지는 법적으로 같은 보호조치다. 어느 쪽이든 **자동으로 넘어가지 않고 이음매를 통과할 때마다 한 번 알리고 사용자가 고른다**. '진행' 이면 그대로 간다 — 근거를 묻지도 검증하지도 않는다. 통지를 면제하는 것은 도메인이 아니라 그 프로필이 **지금 들고 있는** `consent` 기록이다(sticky) — 사다리 A 로 내려가 프로필이 배포 대상이 되면 그 기록은 지워지므로(사용자의 통지 이력을 배포되는 파일에 실어 보내지 않는다), 사이트가 나중에 새로 막으면 다시 통지한다. 상세는 `.agents/skills/web-crawler/SKILL.md` Step 3 "이음매 통지 게이트".
 - **CAPTCHA 자동 풀이 금지** — 위 통지 게이트와 별개다. reCAPTCHA/hCaptcha 를 **프로그램으로 푸는 것**은 하지 않는다. 사용자가 agent-browser 로 직접 풀고 이어가는 것은 가능하다.
 - **로그인 자격증명 저장 금지** — ID/PW를 코드·메모리·파일에 저장하지 않는다. 사용자가 직접 로그인 → 쿠키만 추출(`output/<도메인>/cookies.json`, `.gitignore`가 차단).
 - **robots.txt 제한** 발견 시(`Disallow: /` 또는 대상 경로 차단) 진행 여부를 사용자에게 묻는다.
@@ -84,8 +91,8 @@ python scripts\preflight.py              # 검증: core / agent-browser 분리 P
 
 | 무엇 | 경로 |
 |------|------|
-| 워크플로우 7단계 | `.codex/skills/web-crawler/SKILL.md` |
-| Fetcher 코드 템플릿 | `.codex/skills/web-crawler/references/fetcher-patterns.md` |
-| 안티봇(Akamai/Cloudflare/SPA 세션) | `.codex/skills/web-crawler/references/antibot-strategies.md` |
-| 수집 실패 진단 | `.codex/skills/web-crawler/references/troubleshooting.md` |
+| 워크플로우 7단계 | `.agents/skills/web-crawler/SKILL.md` |
+| Fetcher 코드 템플릿 | `.agents/skills/web-crawler/references/fetcher-patterns.md` |
+| 안티봇(Akamai/Cloudflare/SPA 세션) | `.agents/skills/web-crawler/references/antibot-strategies.md` |
+| 수집 실패 진단 | `.agents/skills/web-crawler/references/troubleshooting.md` |
 | 프로젝트 규칙·도구 분리 SSOT | `CLAUDE.md` |
