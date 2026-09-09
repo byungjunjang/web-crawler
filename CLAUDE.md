@@ -6,6 +6,15 @@
 
 ---
 
+## 호스트 진입점
+
+- **Claude Code / Claude Cowork**는 `.claude/skills/web-crawler` 정본을 사용한다.
+- **Codex**는 `AGENTS.md`와 공식 저장소 스킬 경로인 `.agents/skills/web-crawler`를 자동 발견한다. **ChatGPT Work 로컬**은 같은 `AGENTS.md`가 해당 스킬 경로로 안내한다.
+- `.agents/skills`와 기존 호환용 `.codex/skills`는 생성물이다. 이 둘을 직접 고치지 말고 `.claude/skills`를 수정한 뒤 `python scripts/sync_codex_mirror.py`로 함께 재생성한다.
+- ChatGPT Work에서는 데스크톱 앱에서 이 저장소를 주 폴더로 열고 **Work locally**를 사용해야 로컬 `.venv`와 브라우저를 실행할 수 있다. Work 클라우드는 로컬 설치 상태를 상속하지 않는다.
+
+---
+
 ## 최초 환경 셋업 (클론 직후 1회, 수집 전 확인)
 
 수집 시도 전에 환경을 준비한다. **한 명령**으로 단계별 설치+검증(이미 된 단계는 skip):
@@ -93,9 +102,9 @@ python scripts/preflight.py              # 검증: core / agent-browser 분리 P
 <!-- BEGIN GENERATED: domain-list -->
 <!-- 이 블록은 scripts/sync_domain_list.py 가 생성한다. 직접 수정하지 말 것. -->
 
-### 알려진 도메인 (14개 profile commit됨)
+### 알려진 도메인 (15개 profile commit됨)
 
-`books.toscrape.com`, `builtini.co.kr`, `celimax.co.kr`, `data.seoul.go.kr`, `db.itkc.or.kr`, `g2b.go.kr`, `guesskorea.com`, `made-in-china.com`, `wanted.co.kr`, `www.11st.co.kr`, `www.fss.or.kr`, `www.gsmarena.com`, `www.k-startup.go.kr`, `www.kurly.com` — 이 도메인들은 정찰 없이 바로 수집 시도 가능.
+`books.toscrape.com`, `builtini.co.kr`, `celimax.co.kr`, `data.seoul.go.kr`, `db.itkc.or.kr`, `g2b.go.kr`, `guesskorea.com`, `made-in-china.com`, `wanted.co.kr`, `www.11st.co.kr`, `www.fss.or.kr`, `www.gsmarena.com`, `www.k-startup.go.kr`, `www.kdca.go.kr`, `www.kurly.com` — 이 도메인들은 정찰 없이 바로 수집 시도 가능.
 
 <!-- END GENERATED: domain-list -->
 

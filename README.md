@@ -2,7 +2,18 @@
 
 여러 웹사이트에서 원하는 정보를 **자동으로 모아 엑셀로 정리**해 주는 AI 에이전트입니다. 코딩을 몰라도 *"이 사이트에서 이런 걸 모아줘"* 라고 말하면 에이전트가 알아서 사이트를 살펴보고(정찰), 데이터를 수집하고, 엑셀 파일로 만들어 줍니다.
 
-> 사용자가 직접 프로그램을 짜는 게 아닙니다. **Claude Code나 Codex 같은 AI 코딩 에이전트**에게 자연어로 부탁하면 이 레포에 담긴 도구·규칙·과거 수집 노하우를 따라 에이전트가 대신 수집해 줍니다.
+> 사용자가 직접 프로그램을 짜는 게 아닙니다. **Claude Code, Codex, ChatGPT Work 로컬 같은 AI 작업 에이전트**에게 자연어로 부탁하면 이 레포에 담긴 도구·규칙·과거 수집 노하우를 따라 에이전트가 대신 수집해 줍니다.
+
+## 지원 실행 환경
+
+| 환경 | 사용 방법 | 지원 범위 |
+|---|---|---|
+| **Codex CLI·IDE·데스크톱** | 이 저장소 루트에서 시작 | 전체 파이프라인 |
+| **ChatGPT Work 로컬** | ChatGPT 데스크톱 앱에서 이 저장소를 주 폴더로 열고 **Work locally** 선택 | 전체 파이프라인(로컬 셸·브라우저 권한 필요) |
+| **Claude Code / Claude Cowork** | 기존 `.claude/skills` 정본 사용 | 호스트 권한 범위 |
+| **ChatGPT Work 클라우드** | OpenAI 호스티드 환경 | 로컬 `.venv`·브라우저·CDP를 상속하지 않으므로 이 프로젝트의 전 파이프라인에는 부적합 |
+
+Codex 공식 저장소 스킬이자 ChatGPT Work 로컬의 공유 진입점은 `.agents/skills/web-crawler`입니다. `.claude/skills`가 정본이고, `.agents/skills`와 기존 호환용 `.codex/skills`는 `scripts/sync_codex_mirror.py`가 함께 생성합니다. Codex는 `.agents/skills`를 자동 발견하며, Work 로컬은 루트 `AGENTS.md`를 통해 같은 경로를 사용합니다. 자세한 발견 규칙은 [OpenAI의 AGENTS.md 안내](https://learn.chatgpt.com/docs/agent-configuration/agents-md), [스킬 작성 안내](https://learn.chatgpt.com/docs/build-skills), [ChatGPT Work 로컬 보안 안내](https://learn.chatgpt.com/docs/enterprise/chatgpt-work-local-security)를 참고하세요.
 
 ## 시작하기 전에 — 어디까지 수집해도 되나
 
@@ -109,7 +120,7 @@ robots.txt 에는 법적 구속력이 없습니다. 그래도 표지판입니다
 
 ## 처음 설치하기 (최초 1회)
 
-> 💡 **가장 쉬운 방법** — Claude Code 나 Codex 에게 이 레포 링크를 주고 *"환경 셋업해줘"* 라고만 하세요. 에이전트가 아래 [에이전트용 셋업 안내](#에이전트용-셋업-안내)를 읽고 알아서 설치하고 결과를 보고합니다. 직접 하려면 아래 [한 방 설치](#한-방-설치-권장) 명령을 그대로 실행하면 됩니다.
+> 💡 **가장 쉬운 방법** — Claude Code, Codex 또는 ChatGPT Work 로컬에게 이 레포 링크를 주고 *"환경 셋업해줘"* 라고만 하세요. 에이전트가 아래 [에이전트용 셋업 안내](#에이전트용-셋업-안내)를 읽고 알아서 설치하고 결과를 보고합니다. 직접 하려면 아래 [한 방 설치](#한-방-설치-권장) 명령을 그대로 실행하면 됩니다.
 
 ### 미리 필요한 것
 
@@ -255,7 +266,7 @@ python -m venv .venv && . .venv/bin/activate && python scripts/bootstrap.py
 <!-- BEGIN GENERATED: domain-list -->
 <!-- 이 블록은 scripts/sync_domain_list.py 가 생성한다. 직접 수정하지 말 것. -->
 
-현재 14개 도메인 프로필이 포함되어 있습니다: `books.toscrape.com`, `builtini.co.kr`, `celimax.co.kr`, `data.seoul.go.kr`, `db.itkc.or.kr`, `g2b.go.kr`, `guesskorea.com`, `made-in-china.com`, `wanted.co.kr`, `www.11st.co.kr`, `www.fss.or.kr`, `www.gsmarena.com`, `www.k-startup.go.kr`, `www.kurly.com`.
+현재 15개 도메인 프로필이 포함되어 있습니다: `books.toscrape.com`, `builtini.co.kr`, `celimax.co.kr`, `data.seoul.go.kr`, `db.itkc.or.kr`, `g2b.go.kr`, `guesskorea.com`, `made-in-china.com`, `wanted.co.kr`, `www.11st.co.kr`, `www.fss.or.kr`, `www.gsmarena.com`, `www.k-startup.go.kr`, `www.kdca.go.kr`, `www.kurly.com`.
 
 <!-- END GENERATED: domain-list -->
 
@@ -322,7 +333,9 @@ git diff --cached --name-only        # commit 직전 무엇이 올라가는지 �
 ## 참고 문서
 
 - `ACCEPTABLE_USE.md` — 이용 범위·사용자 책임·기여자 규칙
-- `CLAUDE.md` — 메인 에이전트 지시서 (양 host SSOT)
-- `AGENTS.md` — Codex 실행 계약 (최초 셋업 포함)
+- `CLAUDE.md` — 메인 에이전트 지시서와 Claude용 정본 계약
+- `AGENTS.md` — Codex·ChatGPT Work 실행 계약 (최초 셋업 포함)
 - `.claude/skills/web-crawler/SKILL.md` — 워크플로우 (Step 1-A/5-A 게이트 포함)
 - `.claude/skills/web-crawler/references/` — fetcher-patterns / antibot-strategies / troubleshooting
+- `.agents/skills/web-crawler/` — Codex 공식·ChatGPT Work 로컬 공유 생성 미러
+- `.codex/skills/web-crawler/` — 기존 Codex 설치 호환 생성 미러

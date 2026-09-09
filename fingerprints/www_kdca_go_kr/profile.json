@@ -1,0 +1,51 @@
+{
+  "domain": "www.kdca.go.kr",
+  "capability": "static",
+  "fetcher_type": "Fetcher",
+  "antibot_type": "none",
+  "antibot_strategy": "none",
+  "site_type": "static",
+  "selectors": {
+    "list_table_caption_contains": "자료실",
+    "list_row": "table(caption 자료실) tbody tr",
+    "list_cells": "td[0]=번호 td[2]=담당부서 td[3]=작성일",
+    "list_title": "tr strong::text",
+    "list_artclSeq_regex": "jf_viewArtcl\\('kdca'.*?'34'.*?'(\\d+)'\\)",
+    "detail_attachment_block": "<div class=\"attachment\">(.*?)<div class=\"rules\"",
+    "detail_attachment_item": "<li>...download href=attch-down</li>",
+    "detail_content": ".viewCont .txt"
+  },
+  "pagination": {
+    "type": "query_param",
+    "param": "page",
+    "limit_per_page": 10,
+    "date_filter_params": {
+      "begin": "rgsBgndeStr",
+      "end": "rgsEnddeStr",
+      "format": "YYYY.MM.DD"
+    }
+  },
+  "api_endpoints": [
+    {
+      "url": "https://www.kdca.go.kr/kdca/3341/subview.do",
+      "method": "GET",
+      "params": {
+        "page": "int",
+        "rgsBgndeStr": "YYYY.MM.DD(선택)",
+        "rgsEnddeStr": "YYYY.MM.DD(선택)"
+      },
+      "field_mapping": "목록 — 이 board(3341)만 해당. 다른 게시판은 layout hex 값이 다름"
+    },
+    {
+      "url": "https://www.kdca.go.kr/bbs/kdca/34/{artclSeq}/artclView.do",
+      "method": "GET",
+      "params": {
+        "layout": "6b6463614040333334314040666e637431(board 3341 고정)",
+        "page": "1"
+      },
+      "field_mapping": "상세 — POST로 직접 artclList.do/artclView.do 치면 enc= 리다이렉트로 빈 응답(len 0). 반드시 GET+query param 형태로 요청할 것"
+    }
+  ],
+  "notes": "이 board(3341=고위험병원체 등 생물안전 관리>자료실, layout hex는 'kdca@@3341@@fnct1') 한정 값. 목록/상세 모두 POST로 직접 치면 서버가 enc=<base64> 리다이렉트로 빈 응답(len 0)을 준다 — 반드시 GET + query string으로 호출할 것(브라우저의 form.submit()을 흉내내지 말고, 그 결과 URL 패턴만 재현). 목록은 ?page=N 자체가 이미 GET으로 동작하고 rgsBgndeStr/rgsEnddeStr(YYYY.MM.DD)로 서버사이드 날짜 필터가 걸린다(종료일 생략하면 오늘까지). 상세는 /bbs/kdca/34/{artclSeq}/artclView.do?layout=<위 hex>&page=1 GET (Referer 불필요, 무인증). 첨부파일은 <div class=\"attachment\"><ul><li>파일명<div><a class=\"attch-down\" href=download.do>...로 파일명에 확장자가 그대로 붙어 나오므로 .pdf/.hwpx 등 필터는 파일명 문자열로 가능. 다른 board(다른 게시판)는 layout hex가 다르므로 재사용 시 그 게시판 페이지에서 viewForm의 layout hidden 값을 새로 떠야 한다. 2026-09-09 재검증: 2021-01-01 이후 공지는 동일 GET 레시피로 수집된다. 현 Scrapling 환경에서는 page.html_content 한글이 U+FFFD로 손실될 수 있어 page.body를 UTF-8 strict decode한 문자열을 Selector에 넘긴다. 상세 본문은 .viewCont .txt에서 attachment div 앞까지만 추출한다. 첨부파일 메타데이터는 전 형식을 보존하고 .pdf만 별도 폴더 다운로드 대상으로 분류한다.",
+  "last_used": "2026-09-09"
+}
