@@ -54,3 +54,6 @@ autoresearch-web-crawler/
 
 # 내부 기획/설계 문서
 docs/
+
+# 세션 상태 (tdd-context-dev) — 로컬 전용. docs/ 와 같은 규약.
+.context/
