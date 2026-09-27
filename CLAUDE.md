@@ -117,7 +117,7 @@ profile_mgr.save(domain, {
     "fetcher_type": "<yt-dlp|RSS|oEmbed|Jina|Fetcher|FetcherSession|DynamicFetcher|DynamicSession|Spider|playwright_spa_intercept|curl_cffi_grid|StealthyFetcher|chrome_cdp|API_SESSION>",   # 파생 — 현재 엔진에서의 구현체. 앞 4개는 Phase 0 공인 우회로
     "antibot_type": "<none|cloudflare|akamai|spa_session|naver_antibot|other>",
     "antibot_strategy": "<none|playwright_intercept|impersonate|curl_cffi_grid|stealthy|chrome_cdp|naver_antibot|authenticated_browser>",   # 실제로 쓴 대응. 사다리 B 를 썼으면 반드시 그 값을 적는다
-    "site_type": "<static|csr|api|spa_session|akamai>",
+    "site_type": "<static|csr|api|spa_session|akamai|api_direct|csr_api|html_endpoint|static_html>",   # 기술 서술용 상세 라벨 — 거친 능력 신호는 capability 가 SSOT 다
     "selectors": {...},
     "pagination": {...},
     "api_endpoints": [...],
@@ -350,7 +350,7 @@ chrome.exe --remote-debugging-port=9222 \
 
 ## 스킬 참조
 
-크롤링 워크플로우 상세는 `.claude/skills/web-crawler/SKILL.md`를 따른다. Step 1-A(프로필 조회) ↔ Step 5-A(프로필 저장) 게이트가 포함된 7단계 흐름. 추가 레퍼런스:
+크롤링 워크플로우 상세는 `.claude/skills/web-crawler/SKILL.md`를 따른다. 입력 파싱(Step 1) → 정찰(Step 2) → 전략 결정(Step 3) → 수집(Step 4) → 검증(Step 5) → 엑셀 출력(Step 6) 흐름이며, Step 1-A(프로필 조회) ↔ Step 5-A(프로필 저장) 게이트와 Step 1-B·2-0·2-A·3.5·5.0 보조 단계가 그 사이에 들어간다. 스텝 수를 세지 말고 SKILL.md 를 볼 것 — 표가 늘어나면 숫자는 또 거짓이 된다. 추가 레퍼런스:
 - `.claude/skills/web-crawler/references/fetcher-patterns.md` — Fetcher별 코드 템플릿
 - `.claude/skills/web-crawler/references/antibot-strategies.md` — Akamai/Cloudflare/SPA 세션 대응
 - `.claude/skills/web-crawler/references/troubleshooting.md` — 수집 실패 진단

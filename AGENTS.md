@@ -84,7 +84,7 @@ python scripts\preflight.py              # 검증: core / agent-browser 분리 P
 
 | 무엇 | 경로 |
 |------|------|
-| 워크플로우 7단계 | `.codex/skills/web-crawler/SKILL.md` |
+| 워크플로우 전체 | `.codex/skills/web-crawler/SKILL.md` |
 | Fetcher 코드 템플릿 | `.codex/skills/web-crawler/references/fetcher-patterns.md` |
 | 안티봇(Akamai/Cloudflare/SPA 세션) | `.codex/skills/web-crawler/references/antibot-strategies.md` |
 | 수집 실패 진단 | `.codex/skills/web-crawler/references/troubleshooting.md` |

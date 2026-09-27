@@ -66,7 +66,7 @@ profile_mgr.save(domain, {
     "capability": "<static|js_render|api|session>",   # ★ SSOT — 능력 수준. 비워 두면 save() 가 fetcher_type 에서 채운다
     "fetcher_type": "<Fetcher|FetcherSession|DynamicFetcher|DynamicSession|Spider|playwright_spa_intercept|curl_cffi_grid|StealthyFetcher|chrome_cdp|API_SESSION|yt-dlp|RSS|oEmbed|Jina>",
     "antibot_strategy": "<none|playwright_intercept|impersonate|curl_cffi_grid|stealthy|chrome_cdp|naver_antibot|authenticated_browser>",
-    "site_type": "<static|csr|api|spa_session|akamai>",
+    "site_type": "<static|csr|api|spa_session|akamai|api_direct|csr_api|html_endpoint|static_html>",   # 기술 서술용 상세 라벨 — 거친 능력 신호는 capability 가 SSOT 다
     # robots·ToS 사유로 배포에서 빼야 하면 명시한다 — 사다리 A 여도 이 선언은 무조건 인정된다
     "distribution": "local", "distribution_reason": "<한 줄>",
     "selectors": {<MAPPING>},
@@ -423,11 +423,18 @@ items = page.css("<SELECTOR>", adaptive=True, auto_save=True,
 from utils import detect_softblock
 
 # 첫 페이지 본문 + status + 쿠키로 판별 (cookies는 session.cookies 등에서 dict로)
+# min_size 는 **HTML 페이지** 기준(기본 3000B)이다. JSON API 를 수집한다면 반드시 낮춰 준다 —
+#   유효한 API 응답이 수백~수천 B 라 "response too small" 신호로 challenge 가 되고(2026-09-27 실측:
+#   858B 리뷰 API 응답이 blocked=True 로 판정됨), 그 결과 정상 수집이 Step 3 이음매로 되돌아간다.
+#   JSON 은 파싱 성공 여부가 더 정확한 신호다. 그래서 JSON 일 때만 min_size=0 으로 두고,
+#   마커·쿠키 시그널은 그대로 받는다 — 게이트를 약화시키지 않는 유일한 방법이다.
+is_json_api = isinstance(data, (dict, list))   # 수집 대상이 JSON API 라면 True
 verdict = detect_softblock(
     page.html_content,                 # 또는 resp.text
     status=page.status,
     cookies=dict(session.cookies) if hasattr(session, "cookies") else None,
     selector_hit=bool(page.css("<ITEM_SELECTOR>")),  # 핵심 콘텐츠 셀렉터 매칭 여부
+    min_size=0 if is_json_api else 3000,
 )
 if verdict["blocked"]:
     logger.error(f"소프트블록 감지 — {verdict['verdict']}: {verdict['signals']}")
@@ -442,6 +449,7 @@ if verdict["blocked"]:
    감지된 유형(Akamai 시그널 / 챌린지 / 빈 셸)은 게이트 문구의 `<감지된 유형>` 에 넣는다.
    사용자가 '진행' 을 고른 뒤에야 WAF capability 라우팅(4·5 를 건너뛸지 등)을 적용한다.
 3. `weak_ok`(셀렉터 미검증 통과)는 통과시키되, 수집 후 필드 채움률이 비정상적으로 낮으면 이 게이트를 의심한다.
+4. **`min_size` 는 본문 종류에 따라 호출자가 정한다.** 기본값 3000B 은 HTML 페이지 기준이고, JSON API 응답은 정상이어도 그보다 작다. JSON 을 수집한다면 `min_size=0` 으로 호출한다 — 챌린지 마커와 쿠키 센서 시그널은 그대로 적용되므로 판정력을 잃지 않는다. 반대로 HTML 을 수집하는데 `min_size=0` 으로 부르면 빈 셸을 못 걸러낸다. **기본값을 그대로 믿지 말고 본문 종류를 먼저 확인하라.**
 
 ### 일반 검증
 
@@ -496,7 +504,7 @@ profile_mgr.save(domain, {
     "fetcher_type": "<yt-dlp|RSS|oEmbed|Jina|Fetcher|FetcherSession|DynamicFetcher|DynamicSession|Spider|playwright_spa_intercept|curl_cffi_grid|StealthyFetcher|chrome_cdp|API_SESSION>",   # 파생 — 현재 엔진에서의 구현체. 앞 4개는 Step 1-B Phase 0 공인 우회로
     "antibot_type": "<none|cloudflare|akamai|spa_session|naver_antibot|other>",
     "antibot_strategy": "<none|playwright_intercept|impersonate|curl_cffi_grid|stealthy|chrome_cdp|naver_antibot|authenticated_browser>",   # 실제로 쓴 대응. 사다리 B 를 썼으면 반드시 그 값을 적는다
-    "site_type": "<static|csr|api|spa_session|akamai>",
+    "site_type": "<static|csr|api|spa_session|akamai|api_direct|csr_api|html_endpoint|static_html>",   # 기술 서술용 상세 라벨 — 거친 능력 신호는 capability 가 SSOT 다
     # robots·ToS 사유로 배포에서 빼야 하면 명시 — 사다리 A 여도 이 선언은 무조건 인정된다
     "distribution": "local", "distribution_reason": "<한 줄>",
     "selectors": {<필드: 셀렉터>},
