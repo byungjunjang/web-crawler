@@ -12,7 +12,7 @@
     "antibot_strategy": "none|playwright_intercept|impersonate|curl_cffi_grid|stealthy|chrome_cdp|naver_antibot|authenticated_browser",    # 대응 전략
     "site_type": "static|csr|api|spa_session|akamai|api_direct|csr_api|html_endpoint|static_html",   # 기술 서술용 상세 라벨. 거친 능력 신호는 capability 가 SSOT 다
     "selectors": {"필드": "셀렉터"},
-    "pagination": {"type": "url_param|next_button|infinite_scroll"},
+    "pagination": {"type": "url_param|url_path|query_param|offset|category_param|toc_tree|none_latest_n|next_button|infinite_scroll"},
     "api_endpoints": [{"url": "", "method": "GET", "params": {}, "field_mapping": {}}],
     "notes": "사이트 특이사항 메모 (str, 또는 여러 줄 쌓인 list[str])",  # 목록이 누적되면 배열로 적어도 된다 — 게이트 규칙 6
     "last_used": "2026-03-09",

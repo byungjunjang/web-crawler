@@ -72,7 +72,7 @@ profile_mgr.save(domain, {
     "selectors": {<MAPPING>},
     "pagination": {<CONFIG>},
     "api_endpoints": [<LIST>],
-    "notes": "<특이사항>",
+    "notes": "<특이사항. 여러 줄 쌓인 목록이면 str 배열로 적어도 된다>",
     # 사다리 B(4단 이상)로 수집했을 때만. **실제로 통지했고 사용자가 '진행' 을 고른 경우에만 적는다** —
     # 그 일이 없었으면 이 블록을 적지 않는다. 적으면 기록이 거짓이 되고, 이 기록의 유일한 쓸모가 사라진다.
     # 근거가 아니라 선택을 적는다. 이미 `consent` 기록이 있는 프로필이면 자동으로 이어지므로(sticky) 생략해도 된다.
@@ -428,9 +428,14 @@ from utils import detect_softblock
 #   858B 리뷰 API 응답이 blocked=True 로 판정됨), 그 결과 정상 수집이 Step 3 이음매로 되돌아간다.
 #   JSON 은 파싱 성공 여부가 더 정확한 신호다. 그래서 JSON 일 때만 min_size=0 으로 두고,
 #   마커·쿠키 시그널은 그대로 받는다 — 게이트를 약화시키지 않는 유일한 방법이다.
-is_json_api = isinstance(data, (dict, list))   # 수집 대상이 JSON API 라면 True
+#
+# ⚠ JSON 판정은 **detect_softblock 에 넘기는 그 본문**으로 한다. 수집 결과 리스트로 판정하지
+#   마라 — 리스트는 isinstance(x, (dict, list)) 가 언제나 True 라 HTML 수집에도 min_size=0 이
+#   걸려 "빈 셸" 크기 신호가 통째로 꺼진다(안전 게이트가 문서 한 줄로 약해진다).
+body = page.html_content                  # 또는 resp.text
+is_json_api = body.lstrip()[:1] in ("{", "[")   # 넘기는 본문 자체에서 판정
 verdict = detect_softblock(
-    page.html_content,                 # 또는 resp.text
+    body,
     status=page.status,
     cookies=dict(session.cookies) if hasattr(session, "cookies") else None,
     selector_hit=bool(page.css("<ITEM_SELECTOR>")),  # 핵심 콘텐츠 셀렉터 매칭 여부
@@ -510,7 +515,7 @@ profile_mgr.save(domain, {
     "selectors": {<필드: 셀렉터>},
     "pagination": {<config — type/param/limit 등>},
     "api_endpoints": [{<url, method, params, field_mapping>}],
-    "notes": "<다음 사람이 정찰 없이 바로 수집할 수 있는 결정적 한두 줄>",
+    "notes": "<다음 사람이 정찰 없이 바로 수집할 수 있는 결정적 한두 줄. 여러 줄 쌓인 목록이면 str 배열로 적어도 된다>",
     "last_used": str(date.today()),
     # 사다리 B(4단 이상)로 수집했을 때만. **실제로 통지했고 사용자가 '진행' 을 고른 경우에만 적는다** —
     # 그 일이 없었으면 이 블록을 적지 않는다. 적으면 기록이 거짓이 되고, 이 기록의 유일한 쓸모가 사라진다.
