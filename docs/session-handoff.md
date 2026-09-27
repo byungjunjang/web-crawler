@@ -9,23 +9,23 @@
 
 다음 세션은 이 파일과 `.harness/state.json` 만 읽으면 된다. 이전 대화 이력은 근거가 아니다.
 
-- 입력 다이제스트: `8e39effb200eb4f9633cd775a10f8e04a334fcd71512bb2c015bc420b7715288`
+- 입력 다이제스트: `fd2ddcaf1a7cbf2097548ca90b659ddfc72061d329242c0d3985e6a7cf1b3614`
 
 ## 상태 한 줄 요약
 
 - 활성 작업: **HARNESS-001** — 계약 `docs/task-contracts/HARNESS-001.md`
 - NORTH STAR: URL과 수집 항목을 받아 사이트를 정찰·대량수집하고 엑셀로 내보내는 범용 웹 크롤링 에이전트 — 문서에 적힌 대로 따라 하면 죽지 않는다 (`GOAL-001`)
 - 단계: `POST_CHECK` / dirty=`False`
-- 검증 커밋: `947802ace6b657971e567aa559c151aa7ceb7588`
+- 검증 커밋: `e725dc4fc929aba443506bc928febec8447ff160`
 - 작업 도구: **opencode-go/deepseek-v4.1-flash**
 
 ## 실측 검증 (write 시점에 돌린 결과다)
 
-기준선: `c9bdd14` · 브랜치 `master`
+기준선: `e725dc4` · 브랜치 `master`
 
 | 항목 | 명령 | 결과 |
 |---|---|---|
-| baseline | `python -m pytest -q -k "not e2e"` | exit=0 ✅ — 573 passed, 14 deselected |
+| baseline | `python -m pytest -q -k "not e2e"` | exit=1 ❌ — 2 failed, 571 passed, 14 deselected |
 | 연속성 | `python scripts/continuity_check.py` | exit=0 ✅ — 연속성 검사 통과 — 포인터와 실제 파일이 일치한다 |
 | 도메인 목록 | `python scripts/sync_domain_list.py --check` | exit=0 ✅ — [OK] 도메인 목록 최신 — 14개 |
 | Codex 미러 | `python scripts/sync_codex_mirror.py --check` | exit=0 ✅ — 출력 없음 |
@@ -33,6 +33,7 @@
 
 ## 이번 세션에 한 일
 
+- e725dc4 fix(harness): 다이제스트에서 HEAD 를 빼 고정점 불가 구조를 없앤다
 - c9bdd14 chore(harness): 커밋으로 HEAD 가 바뀌어 생성이 먼저 필요하므로 핸드오프 재생성
 - 9a4e116 feat(harness): 세션 종료 시 핸드오프 문서를 생성하는 하네스를 이식한다
 - 0672b81 chore(harness): 세션 종료 — 독립 리뷰 기록을 남기고 상태를 닫는다
@@ -44,7 +45,6 @@
 - e9c3060 fix(docs): 문서가 코드와 정본 계약을 거슬렀다 — 4건 정정
 - 5867a4b chore: 세션 상태(.context/)를 커밋 대상에서 뺀다
 - d94f621 test(profile): 프로필 계약 불일치 6건을 CI 가 잡는다
-- ecac61a fix(profile): builtini·celimax 리뷰 API 레시피를 실측값으로 되살린다
 
 ## 남은 것 / 다음 세션
 
