@@ -1,7 +1,16 @@
 {
   "schema_version": "1.0",
   "active_work_id": "HARNESS-001",
-  "stage": "VERIFY",
-  "dirty": true,
-  "verified_commit": null
+  "stage": "POST_CHECK",
+  "dirty": false,
+  "verified_commit": "947802ace6b657971e567aa559c151aa7ceb7588",
+  "session_end": {
+    "independent_review": {
+      "status": "passed",
+      "model": "opencode-go/deepseek-v4.1-flash",
+      "reviewed_head": "22873dd",
+      "findings_fixed": 5,
+      "note": "CHANGES REQUESTED 로 받은 D1~D5 를 수정했고, 리뷰어가 지목한 우회 입력(session_end={}, independent_review=null, status='done', model='   ') 을 직접 재현해 exit 1 로 바뀐 것을 확인했다."
+    }
+  }
 }
