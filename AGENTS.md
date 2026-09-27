@@ -1,3 +1,56 @@
+<!-- BEGIN GENERATED: agent-contract -->
+## 실행 계약 (모델 공통)
+
+이 절은 Claude Code, Codex, Cursor, Gemini CLI, 그 밖의 어떤 모델·도구에서
+작업하든 **똑같이** 지켜야 하는 부분이다. 두 파일 모두 아래 블록은
+`python scripts/sync_agent_contract.py` 로 같은 정본에서 생성된다.
+판단이 필요한 부분(무엇을 정할지)은 모델이 아니라 이 저장소의 파일이 정한다.
+
+> **아래 `python` 은 venv 안의 인터프리터다.** venv 밖에는 `python` 이 없을 수 있다
+> (macOS 는 `python3` 이고, 이 저장소实测 기준 `python` 은 `.venv/bin/python` 이다).
+> venv 를 먼저 활성화하거나, 없는 명령이 오면 곧바로 `python3` 로 되받아라.
+>
+> ```bash
+> python -m venv .venv && . .venv/bin/activate    # Windows: .\.venv\Scripts\Activate.ps1
+> ```
+
+### 세션 시작
+
+1. `.harness/policy.json` 과 `.harness/state.json` 을 읽는다.
+   여기 없는 계획은 없다. 대화창에 남은 기억을 근거로 삼지 않는다.
+2. 작업이 `.harness/active_work` 와 다르면 새 작업으로 등록한다.
+
+### 제품 변경 전 (모두 실행하고, 실패하면 멈춘다)
+
+```text
+python -m pytest -q -k "not e2e"
+python scripts/continuity_check.py
+python scripts/sync_domain_list.py --check
+python scripts/sync_codex_mirror.py --check
+python scripts/sync_agent_contract.py --check
+```
+
+### 완료 선언
+
+- 위 다섯 명령이 **모두 exit 0** 이고, 그 출력을 본 뒤에만 완료라고 말한다.
+- 실행하지 않은 명령의 결과를 예상으로 쓰지 않는다. 모르면 `미확인` 이라고 쓴다.
+- 추측·추론을 결과로 보고하지 않는다. 실측 값과 그 출처를 함께 적는다.
+
+### 세션 종료
+
+1. **독립 리뷰**를 돌린다 (같은 모델이 아니라 다른 모델로).
+2. finding 을 **고친다**. 통과가 아니라 수정까지 끝낸다.
+3. `.harness/state.json` 의 `dirty` 를 `false` 로 바꾸고
+   `session_end.independent_review` 에 `status`(passed/findings_open)와
+   `model` 을 적는다. `dirty: false` 인데 이 기록이 없으면 검사기가 실패한다.
+4. `python scripts/continuity_check.py` 를 다시 돌려 통과를 확인한다.
+
+### 변경 직후
+
+- TDD 는 RED 확인 → 최소 GREEN → 리팩터 순서다. RED 를 확인하지 않은 테스트는
+  통과한 것이 아니라 **아직 아무것도 검증하지 않은 것** 이다.
+<!-- END GENERATED: agent-contract -->
+
 # AGENTS.md — web-crawler (Codex / Claude Code dual-host)
 
 이 레포는 URL과 수집 항목을 받아 사이트를 정찰·대량수집하고 엑셀로 내보내는 범용 웹 크롤링 에이전트다. **`CLAUDE.md`와 `.codex/skills/web-crawler/SKILL.md`가 *어떻게*에 대한 SSOT다.** 이 파일은 Codex용 **실행 계약**이다 — Claude Code는 Skill 런타임으로 같은 규율을 자동 적용받지만, Codex는 Skill 런타임이 없으므로 이 파일이 대신 강제한다.

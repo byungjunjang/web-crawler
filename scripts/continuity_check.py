@@ -242,6 +242,58 @@ def _check_state(root, state, policy, report) -> None:
             "문자열이 아니라 JSON boolean 으로 적어라",
         )
 
+    _check_session_end(state, report)
+
+
+def _check_session_end(state, report) -> None:
+    """`dirty: false` 는 "이 세션을 깨끗이 닫았다" 는 선언이다.
+
+    그러면 독립 리뷰가 돌았다는 **기록**을 요구한다. 산문 규칙은 안 지키면 조용히
+    넘어가므로 코드로 강제한다. 진행 중(dirty: true)에는 요구하지 않는다 —
+    매 단계마다 리뷰는 과하고 비용만 커진다.
+    """
+    if state.get("dirty") is not False:
+        return
+
+    session_end = _need_mapping(state.get("session_end"), "state.session_end", report)
+    if session_end is None:
+        report.fail(
+            "state.session_end.independent_review 존재 (dirty=false 일 때)",
+            "state.session_end 없음",
+            "세션을 닫았다면 독립 리뷰 기록(state.session_end.independent_review)을 남겨라. "
+            "아직 작업 중이면 dirty 를 true 로 두어라",
+        )
+        return
+
+    review = _need_mapping(
+        session_end.get("independent_review"), "state.session_end.independent_review", report,
+    )
+    if review is None:
+        return
+
+    status = review.get("status")
+    if status is None:
+        report.fail(
+            "session_end.independent_review.status 존재", "없음",
+            "독립 리뷰를 돌렸는지 (not_run / findings_open / passed) 적어라",
+        )
+    elif status == "findings_open":
+        report.fail(
+            "session_end.independent_review.status 가 findings_open 이 아님", "findings_open",
+            "리뷰 finding 이 미해결이다. 고치고 나서 status 를 passed 로 바꿔라",
+        )
+    elif status != "passed":
+        report.warn(
+            f"session_end.independent_review.status = {status!r} — "
+            f"세션을 닫으려면 'passed' 여야 한다"
+        )
+
+    if not review.get("model"):
+        report.fail(
+            "session_end.independent_review.model 존재", "없음",
+            "어느 모델로 돌렸는지 남겨야 리뷰를 재현할 수 있다",
+        )
+
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="계획 연속성 검사기")

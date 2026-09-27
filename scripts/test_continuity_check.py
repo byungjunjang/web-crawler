@@ -148,10 +148,13 @@ def harness(tmp_path: pathlib.Path) -> pathlib.Path:
     }, ensure_ascii=False, indent=2), encoding="utf-8")
 
     (root / ".harness/state.json").write_text(json.dumps({
+        # 기본 픽스처는 **진행 중**이다. dirty=false 는 "세션을 닫았다" 는 선언이라
+        # 독립 리뷰 기록을 요구하는데, 정상 상태 픽스처에서 그걸 요구하면 안 된다.
+        # 세션 종료 규칙은 아래 테스트들이 명시적으로 dirty=false 를 만든다.
         "schema_version": "1.0",
         "active_work_id": "WORK-001",
         "stage": "GREEN",
-        "dirty": False,
+        "dirty": True,
         "verified_commit": None,
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     return root
@@ -313,6 +316,59 @@ def test_missing_policy_fails(tmp_path):
     )
     assert proc.returncode != 0
     assert CHECKER.exists()
+
+
+def test_clean_session_requires_independent_review_record(harness):
+    """`dirty: false` = 이 세션을 깨끗이 닫았다고 선언한 것이다.
+
+    그러면 반드시 **독립 리뷰가 돌았다는 기록**이 있어야 한다. 산문 규칙은 안 지키면
+    조용히 넘어가므로 검사기로 강제한다 — 2026-09-27 사용자가 세션 종료마다
+    독립 리뷰 실행을 요구했다.
+    """
+    _edit(harness, ".harness/state.json", lambda d: d.__setitem__("dirty", False))
+    _assert_violation(harness, "independent_review")
+
+
+def test_clean_session_with_review_passed_is_accepted(harness):
+    """리뷰가 돌았고 findings_open 이 아니면 통과한다."""
+    def mutate(d):
+        d["dirty"] = False
+        d["session_end"] = {"independent_review": {
+            "status": "passed", "model": "opencode-go/deepseek-v4.1-flash",
+        }}
+    _edit(harness, ".harness/state.json", mutate)
+    proc = _run(harness)
+    assert proc.returncode == 0, f"리뷰 기록이 있는데 실패했다:\n{proc.stdout}\n{proc.stderr}"
+
+
+def test_clean_session_with_open_findings_is_a_violation(harness):
+    """리뷰가 돌았어도 미해결 finding 이 남으면 세션을 닫을 수 없다."""
+    def mutate(d):
+        d["dirty"] = False
+        d["session_end"] = {"independent_review": {
+            "status": "findings_open", "model": "x",
+        }}
+    _edit(harness, ".harness/state.json", mutate)
+    _assert_violation(harness, "findings_open")
+
+
+def test_dirty_session_does_not_require_review_yet(harness):
+    """아직 진행 중이면 리뷰 기록을 요구하지 않는다 — 매 단계마다 리뷰는 과하다."""
+    def mutate(d):
+        d["dirty"] = True
+        d.pop("session_end", None)
+    _edit(harness, ".harness/state.json", mutate)
+    proc = _run(harness)
+    assert proc.returncode == 0, f"진행 중인데 리뷰를 요구했다:\n{proc.stdout}\n{proc.stderr}"
+
+
+def test_review_record_without_model_is_a_violation(harness):
+    """어느 모델로 돌렸는지 없으면 재현할 수 없다."""
+    def mutate(d):
+        d["dirty"] = False
+        d["session_end"] = {"independent_review": {"status": "passed"}}
+    _edit(harness, ".harness/state.json", mutate)
+    _assert_violation(harness, "model")
 
 
 # ── 무엇을 왜 버렸나 ────────────────────────────────────────────────────
