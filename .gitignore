@@ -54,6 +54,19 @@ autoresearch-web-crawler/
 
 # 내부 기획/설계 문서
 docs/
+# 하네스가 sha256 으로 고정하는 파일 — 예외 없으면 clean clone 에서 검사가 실패한다.
+# 판단 근거는 docs/decisions/ADR-001-harness-lean-install.md.
+!docs/
+docs/*
+!docs/decisions/
+docs/decisions/*
+!docs/decisions/ADR-001-harness-lean-install.md
+!docs/plan-approvals/
+docs/plan-approvals/*
+!docs/plan-approvals/CONTINUITY-REV-001.md
+!docs/task-contracts/
+docs/task-contracts/*
+!docs/task-contracts/HARNESS-001.md
 
 # 세션 상태 (tdd-context-dev) — 로컬 전용. docs/ 와 같은 규약.
 .context/

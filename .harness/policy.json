@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "north_star": {
+    "id": "GOAL-001",
+    "statement": "URL과 수집 항목을 받아 사이트를 정찰·대량수집하고 엑셀로 내보내는 범용 웹 크롤링 에이전트 — 문서에 적힌 대로 따라 하면 죽지 않는다",
+    "source": "CLAUDE.md 첫 문장을 옮긴 것. 담당자 승인 문장이 아니다 (UNVERIFIED)"
+  },
+  "active_work": {
+    "id": "HARNESS-001",
+    "contract_path": "docs/task-contracts/HARNESS-001.md",
+    "roadmap_id": "GOAL-001"
+  },
+  "return_to": "HARNESS-001",
+  "interrupt": {
+    "status": "none",
+    "return_to": "HARNESS-001",
+    "exit_criteria": []
+  },
+  "plan_approval": {
+    "id": "CONTINUITY-REV-001",
+    "revision": 1,
+    "path": "docs/plan-approvals/CONTINUITY-REV-001.md",
+    "sha256": "b5788af5b7d3ee1669789382b2a86c4af09b8de2fcd61be73e45ce42be984e8e"
+  },
+  "decision_baseline": [
+    {
+      "id": "ADR-001-harness-lean-install",
+      "path": "docs/decisions/ADR-001-harness-lean-install.md",
+      "sha256": "9220ebe7a332bc6b161793704e65e9b168442284c9c4d3c5a0534d420ca2525c"
+    }
+  ]
+}

@@ -37,3 +37,8 @@ jobs:
         run: |
           python scripts/sync_domain_list.py --check
           python scripts/sync_codex_mirror.py --check
+
+      # 계획 연속성 — "지금 하는 일"과 문서에 적힌 계획이 어긋나면 여기서 걸린다.
+      # 결정론적 검사기라 AI 호출이 없다. 근거는 docs/decisions/ADR-001-harness-lean-install.md.
+      - name: Plan continuity
+        run: python scripts/continuity_check.py

@@ -89,3 +89,17 @@ python scripts\preflight.py              # 검증: core / agent-browser 분리 P
 | 안티봇(Akamai/Cloudflare/SPA 세션) | `.codex/skills/web-crawler/references/antibot-strategies.md` |
 | 수집 실패 진단 | `.codex/skills/web-crawler/references/troubleshooting.md` |
 | 프로젝트 규칙·도구 분리 SSOT | `CLAUDE.md` |
+| 계획 연속성 검사기 | `python scripts/continuity_check.py` |
+
+## 계획 연속성
+
+```text
+작업 전에 .harness/policy.json 과 활성 계약을 읽는다.
+제품 변경 전에 python scripts/continuity_check.py 를 실행한다.
+검사가 실패하면 제품 변경을 멈추고 표시된 드리프트를 먼저 해결한다.
+완료 주장은 활성 계약이 요구한 실제 명령 출력이 있을 때만 한다.
+```
+
+- 포인터 정본은 `.harness/policy.json` **하나**다. 파생 복사본을 두지 않는다.
+- 세션 시작은 `.harness/state.json` 한 파일만 읽으면 복구된다.
+- 근거는 `docs/decisions/ADR-001-harness-lean-install.md` 에 있다.
