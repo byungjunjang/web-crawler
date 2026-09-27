@@ -7,13 +7,14 @@
     "distribution": "public|local",                    # 선택 — 없으면 policy 가 자동 판정
     "distribution_reason": "선언 사유",     # distribution 이 있을 때만 의미 있음
     "consent": {"notified_at": "ISO8601", "choice": "proceed"},   # 사다리 B 프로필 필수, sticky
-    "fetcher_type": "FetcherSession|Fetcher|StealthyFetcher|DynamicFetcher|chrome_cdp",  # 파생 — 현재 엔진에서의 구현체
-    "antibot_type": "none|cloudflare|akamai|other",   # 봇 차단 유형
-    "antibot_strategy": "none|stealthy|chrome_cdp",    # 대응 전략
+    "fetcher_type": "yt-dlp|RSS|oEmbed|Jina|Fetcher|FetcherSession|DynamicFetcher|DynamicSession|Spider|playwright_spa_intercept|curl_cffi_grid|StealthyFetcher|chrome_cdp|API_SESSION",  # 파생 — 현재 엔진에서의 구현체. 앞 4개는 Phase 0 공인 우회로
+    "antibot_type": "none|cloudflare|akamai|spa_session|naver_antibot|other",   # 봇 차단 유형
+    "antibot_strategy": "none|playwright_intercept|impersonate|curl_cffi_grid|stealthy|chrome_cdp|naver_antibot|authenticated_browser",    # 대응 전략
+    "site_type": "static|csr|api|spa_session|akamai|api_direct|csr_api|html_endpoint|static_html",   # 기술 서술용 상세 라벨. 거친 능력 신호는 capability 가 SSOT 다
     "selectors": {"필드": "셀렉터"},
     "pagination": {"type": "url_param|next_button|infinite_scroll"},
     "api_endpoints": [{"url": "", "method": "GET", "params": {}, "field_mapping": {}}],
-    "notes": "사이트 특이사항 메모",
+    "notes": "사이트 특이사항 메모 (str, 또는 여러 줄 쌓인 list[str])",  # 목록이 누적되면 배열로 적어도 된다 — 게이트 규칙 6
     "last_used": "2026-03-09",
 }
 """
