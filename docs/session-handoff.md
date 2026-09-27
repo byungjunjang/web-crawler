@@ -5,7 +5,7 @@
 
 다음 세션은 이 파일과 `.harness/state.json` 만 읽으면 된다. 이전 대화 이력은 근거가 아니다.
 
-- 입력 다이제스트: `da48f05c041f329e4df34ae0e49d9ecfcc7ec0f70c97a23243e9d6671630688a`
+- 입력 다이제스트: `9ece522d4a59ed3ae4e0fad2a48ee39b5ff7f6f5d895f3bd28bfb847a74d5015`
 
 ## 상태 한 줄 요약
 
@@ -17,11 +17,11 @@
 
 ## 실측 검증 (write 시점에 돌린 결과다)
 
-기준선: `0672b81` · 브랜치 `master`
+기준선: `9a4e116` · 브랜치 `master`
 
 | 항목 | 명령 | 결과 |
 |---|---|---|
-| baseline | `python -m pytest -q -k "not e2e"` | exit=0 ✅ — 573 passed, 14 deselected in 8.20s |
+| baseline | `python -m pytest -q -k "not e2e"` | exit=1 ❌ — 2 failed, 571 passed, 14 deselected in 8.34s |
 | 연속성 | `python scripts/continuity_check.py` | exit=0 ✅ — 연속성 검사 통과 — 포인터와 실제 파일이 일치한다 |
 | 도메인 목록 | `python scripts/sync_domain_list.py --check` | exit=0 ✅ — [OK] 도메인 목록 최신 — 14개 |
 | Codex 미러 | `python scripts/sync_codex_mirror.py --check` | exit=0 ✅ — 출력 없음 |
@@ -29,6 +29,7 @@
 
 ## 이번 세션에 한 일
 
+- 9a4e116 feat(harness): 세션 종료 시 핸드오프 문서를 생성하는 하네스를 이식한다
 - 0672b81 chore(harness): 세션 종료 — 독립 리뷰 기록을 남기고 상태를 닫는다
 - 947802a fix(harness): 독립 리뷰가 찾은 세션 종료 우회 3건과 CI 실패 1건을 닫는다
 - 22873dd feat(contract): 실행 계약을 단일 정본에서 생성해 모델 간 기준을 같게 한다
@@ -40,7 +41,6 @@
 - d94f621 test(profile): 프로필 계약 불일치 6건을 CI 가 잡는다
 - ecac61a fix(profile): builtini·celimax 리뷰 API 레시피를 실측값으로 되살린다
 - b6b5e78 docs: 단계 수 주장과 site_type 열거를 실제 구조에 맞춘다
-- 1ff00dd fix(profile): docstring 이 정본보다 좁은 열거를 선언해 문서를 따르는 사람이 막혔다
 
 ## 남은 것 / 다음 세션
 
