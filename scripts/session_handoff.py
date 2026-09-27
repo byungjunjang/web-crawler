@@ -73,20 +73,33 @@ def _run(cmd: list[str], cwd: pathlib.Path) -> tuple[int, str]:
     return proc.returncode, (tail[-1] if tail else "")
 
 
+def _stable(text: str) -> str:
+    """휘발 값을 지운 요약 — 경과 시간 같은 것은 멱등성을 깨고 무의미하다.
+
+    pytest 의 "in 8.12s" 가 매 실행마다 달라서, 그대로 적으면 `write` 를 두 번
+    돌릴 때마다 diff 가 나고 커밋된 문서가 즉시 낡는다(리뷰 [D2]).
+    """
+    text = re.sub(r"\s*in [0-9.]+s\b", "", text)
+    return re.sub(r"\s+", " ", text)[:70]
+
+
 def _git(*args: str, cwd: pathlib.Path) -> str:
     proc = subprocess.run(["git", *args], capture_output=True, text=True, cwd=cwd)
     return proc.stdout.strip() if proc.returncode == 0 else ""
 
 
 def input_digest(root: pathlib.Path) -> str:
-    """핸드오프의 입력(정본 상태 + 현재 커밋)의 지문.
+    """핸다이제스트 — 문서의 **입력**(정본 상태)만으로 만든다.
 
-    실측을 다시 돌리지 않고도 "이 문서가 현재 상태에 맞는가" 를 판정할 수 있게 한다.
+    ⚠ git HEAD 를 넣으면 안 된다. 2026-09-27 독립 리뷰가 잡은 [High] 결함:
+    HEAD 를 담으면 "다이제스트가 든 파일을 커밋하는" 행위가 HEAD 를 바꿔
+    그 다이제스트를 즉시 무효화한다. amend 도 커밋 해시를 바꾸므로
+    **고정점이 존재하지 않는다** — 아무리 재생성해도 다음 커밋에서 또 어긋난다.
+    커밋해도 무효화되지 않는 것은 **문서의 입력**뿐이다.
     """
     state = (root / ".harness/state.json").read_text(encoding="utf-8")
     policy = (root / ".harness/policy.json").read_text(encoding="utf-8")
-    head = _git("rev-parse", "HEAD", cwd=root)
-    return hashlib.sha256(f"{state}\x00{policy}\x00{head}".encode("utf-8")).hexdigest()
+    return hashlib.sha256(f"{state}\x00{policy}".encode("utf-8")).hexdigest()
 
 
 def render(root: pathlib.Path, run_verification: bool) -> str:
@@ -109,7 +122,11 @@ def render(root: pathlib.Path, run_verification: bool) -> str:
     lines = [
         "# 세션 핸드오프",
         "",
-        "> 이 파일은 **생성물**이다. 직접 고치지 마라 — 고쳐도 `--check` 가 실패한다.",
+        "> 이 파일은 **생성물**이다. `python scripts/session_handoff.py write` 로 만든다.",
+        ">",
+        "> `--check` 가 잡는 것: **정본(state/policy)이 바뀌었는데 문서가 따라가지 않은 것**.",
+        "> `--check` 가 **못** 잡는 것: 이 본문 안의 문장을 손으로 고치는 것.",
+        "> 정본이 아닌 본문은 사람이 읽는 설명일 뿐이라 기계가 검증할 수 없다.",
         f"> 정본은 `.harness/state.json` 이고, 생성기는 `{GENERATOR}` 다.",
         "",
         "다음 세션은 이 파일과 `.harness/state.json` 만 읽으면 된다. "
@@ -136,7 +153,7 @@ def render(root: pathlib.Path, run_verification: bool) -> str:
         if run_verification:
             code, tail = _run(_argv(command), cwd=root)
             verdict = "exit=0 ✅" if code == 0 else f"exit={code} ❌"
-            detail = re.sub(r"\s+", " ", tail)[:70] or "출력 없음"
+            detail = _stable(tail) or "출력 없음"
         else:
             verdict, detail = "(실측 안 함)", ""
         lines.append(f"| {label} | `{command}` | {verdict}{' — ' + detail if detail else ''} |")
