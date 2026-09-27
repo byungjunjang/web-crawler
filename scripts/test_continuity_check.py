@@ -371,6 +371,46 @@ def test_review_record_without_model_is_a_violation(harness):
     _assert_violation(harness, "model")
 
 
+# 2026-09-27 독립 리뷰가 찾은 우회 3건. 전부 조용히 통과했다.
+
+def test_empty_session_end_object_is_a_violation(harness):
+    """`session_end: {}` 로 규칙을 꺼버릴 수 있었다.
+
+    필수 항목의 "부재"를 선택 항목과 같은 경로(`report.fail` 없이 return)로 보내면
+    빈 객체 한 번으로 세션 종료 규칙이 통째로 비활성화된다.
+    """
+    def mutate(d):
+        d["dirty"] = False
+        d["session_end"] = {}
+    _edit(harness, ".harness/state.json", mutate)
+    _assert_violation(harness, "independent_review")
+
+
+def test_null_independent_review_is_a_violation(harness):
+    def mutate(d):
+        d["dirty"] = False
+        d["session_end"] = {"independent_review": None}
+    _edit(harness, ".harness/state.json", mutate)
+    _assert_violation(harness, "independent_review")
+
+
+def test_unknown_review_status_is_a_violation_not_a_warning(harness):
+    """'done' 같은 임의 값이 경고만 찍고 통과했다 — 'passed' 와 오타나기 쉽다."""
+    def mutate(d):
+        d["dirty"] = False
+        d["session_end"] = {"independent_review": {"status": "done", "model": "m"}}
+    _edit(harness, ".harness/state.json", mutate)
+    _assert_violation(harness, "status")
+
+
+def test_whitespace_only_model_is_a_violation(harness):
+    def mutate(d):
+        d["dirty"] = False
+        d["session_end"] = {"independent_review": {"status": "passed", "model": "   "}}
+    _edit(harness, ".harness/state.json", mutate)
+    _assert_violation(harness, "model")
+
+
 # ── 무엇을 왜 버렸나 ────────────────────────────────────────────────────
 # 원본 지시서의 항목 중 여기 없는 것, 그리고 이유. 버린 항목은 실측 기준으로 결정했다.
 #

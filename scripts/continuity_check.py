@@ -265,9 +265,18 @@ def _check_session_end(state, report) -> None:
         )
         return
 
-    review = _need_mapping(
-        session_end.get("independent_review"), "state.session_end.independent_review", report,
-    )
+    # 여기서부터가 D1 이었다 — `independent_review` 가 없거나 null 인데 조용히 반환했다.
+    # 필수 항목의 "부재"를 선택 항목과 같은 경로로 보내면 빈 객체 한 번으로 규칙이 꺼진다.
+    review = session_end.get("independent_review")
+    if review is None:
+        report.fail(
+            "state.session_end.independent_review 존재",
+            "없음 또는 null",
+            "세션을 닫았다면 독립 리뷰 기록을 남겨라. "
+            "아직 작업 중이면 dirty 를 true 로 두어라",
+        )
+        return
+    review = _need_mapping(review, "state.session_end.independent_review", report)
     if review is None:
         return
 
@@ -275,7 +284,7 @@ def _check_session_end(state, report) -> None:
     if status is None:
         report.fail(
             "session_end.independent_review.status 존재", "없음",
-            "독립 리뷰를 돌렸는지 (not_run / findings_open / passed) 적어라",
+            "독립 리뷰를 돌렸는지 (passed / findings_open) 적어라",
         )
     elif status == "findings_open":
         report.fail(
@@ -283,15 +292,20 @@ def _check_session_end(state, report) -> None:
             "리뷰 finding 이 미해결이다. 고치고 나서 status 를 passed 로 바꿔라",
         )
     elif status != "passed":
-        report.warn(
-            f"session_end.independent_review.status = {status!r} — "
-            f"세션을 닫으려면 'passed' 여야 한다"
+        # 미지의 값은 조용히 통과시키지 않는다 — 'passed' 처럼 오기 쉬우면 막는다.
+        report.fail(
+            "session_end.independent_review.status = 'passed' 또는 'findings_open'",
+            repr(status),
+            "알 수 없는 상태값이다. 리뷰를 돌렸으면 passed, 미해결 finding 이 있으면 "
+            "findings_open 을 적어라",
         )
 
-    if not review.get("model"):
+    model = review.get("model")
+    if not isinstance(model, str) or not model.strip():
         report.fail(
-            "session_end.independent_review.model 존재", "없음",
-            "어느 모델로 돌렸는지 남겨야 리뷰를 재현할 수 있다",
+            "session_end.independent_review.model 존재", repr(model),
+            "어느 모델로 돌렸는지 남겨야 리뷰를 재현할 수 있다 "
+            "(공백만 넣은 값도 없는 것으로 본다)",
         )
 
 

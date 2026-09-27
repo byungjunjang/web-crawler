@@ -110,10 +110,17 @@ def test_sync_check_detects_drift(tmp_path):
 _CONTRACT_LINE = re.compile(r"^python .+$", re.M)
 CONTRACT_COMMANDS = [c.strip() for c in _CONTRACT_LINE.findall(CONTRACT_BLOCK)]
 
-# 문서는 venv 활성화 후 실행을 전제한다. 이 저장소에는 `python` 이 없고 `python3` 와
-# `.venv/bin/python` 만 있다(2026-09-27 실측). 그래서 계약을 그대로 복사해 돌릴 수 있는
-# 형태로 검증한다 — venv 인터프리터로 같은 인자를 실행한다.
-VENV_PYTHON = REPO / ".venv/bin/python"
+# 계약은 venv 안에서 실행되지만, **검사는 venv 경로를 하드코딩하면 안 된다.**
+# `.venv/` 는 gitignore 되므로 CI 에는 없다 — 2026-09-27 독립 리뷰가 이걸 찾아
+# "로컬에선 통과하는데 CI 에서 4건 실패" 하는 상태를 만들었다.
+# 현재 테스트를 돌고 있는 인터프리터가 곧 venv 인터프리터다(로컬)이고,
+# CI 에서는 CI 의 인터프리터다. 어느 쪽이든 "python" 역할로 쓸 수 있다.
+VENV_PYTHON = None  # 하드코딩하지 않는다. 아래에서 sys.executable 로 대체한다
+
+
+def _python_argv(command: str) -> list[str]:
+    """계약 명령을 실제로 실행할 argv 로 바꾼다."""
+    return [sys.executable] + command.split()[1:]
 
 
 def test_contract_assumes_activated_venv():
@@ -154,15 +161,56 @@ def test_contract_command_actually_runs(command):
     """
     if "-m pytest" in command:
         pytest.skip("pytest 는 현재 실행에서 이미 통과했다 — 두 번 돌릴 이유가 없다")
-    assert VENV_PYTHON.exists(), (
-        f"{VENV_PYTHON} 없다 — venv 인터프리터가 있어야 계약을 검증할 수 있다"
+    proc = subprocess.run(
+        _python_argv(command), capture_output=True, text=True, cwd=REPO,
     )
-    argv = [str(VENV_PYTHON)] + command.split()[1:]
-    proc = subprocess.run(argv, capture_output=True, text=True, cwd=REPO)
     assert proc.returncode == 0, (
         f"계약 블록의 명령이 실패했다: `{command}`\n"
         f"exit={proc.returncode}\n{proc.stdout}\n{proc.stderr}\n"
         f"문서에서 지시한 대로 하면 죽는다 — 호출자를 고쳐라"
+    )
+
+
+def test_this_test_file_does_not_hardcode_the_venv_path():
+    """`.venv` 는 gitignore 다 — 하드코딩하면 CI 에서 이 파일이 죽는다.
+
+    2026-09-27 독립 리뷰 [High]: `.venv/bin/python` 을 하드코딩해 CI(venv 없음)에서
+    4건이 실패했다. 여기서 못 박아 두지 않으면 다시 돌아온다.
+
+    **docstring 과 주석의 언급은 허용한다** — 이 규칙을 설명하는 문장에 `.venv` 가
+    들어가는 건 당연하다. 그래서 docstring 을 제외한 **문자열 상수**만 검사한다.
+    줄 기반 스캔은 docstring 을 구분하지 못해 이 검사 자체가 걸린다.
+
+    그리고 **경로 모양(`.venv/` 뒤에 구분자가 오는 경우)** 만 잡는다. 이름만 언급한
+    `".venv"` 는 경로 의존이 아니고, 이 검사가 자기 needles 를 담는 문자열이라
+    그걸 잡으면 영원히 자기 자신에 걸린다.
+    """
+    import ast
+    import re
+
+    path_like = re.compile(r"\.venv[/\\]")
+
+    path = REPO / "scripts/test_agent_contract.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+
+    docstrings = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            doc = ast.get_docstring(node, clean=False)
+            if doc is not None:
+                docstrings.add(doc)
+
+    offenders = [
+        f"{node.lineno}: {node.value!r}"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, str)
+        and path_like.search(node.value)
+        and node.value not in docstrings
+    ]
+    assert not offenders, (
+        f"테스트가 .venv 경로를 하드코딩했다 — CI 에는 .venv 가 없다:\n"
+        + "\n".join(f"  {o}" for o in offenders)
     )
 
 
