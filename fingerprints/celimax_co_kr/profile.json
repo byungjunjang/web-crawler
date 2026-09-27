@@ -5,39 +5,45 @@
   "antibot_type": "none",
   "antibot_strategy": "none",
   "site_type": "api",
-  "platform": "Cafe24 mall (mall_id=celimax001) + Crema(cre.ma) 리뷰 위젯",
+  "platform": "Cafe24 mall + Crema(cre.ma) 리뷰 위젯 (crema.info.mid = celimax.co.kr123)",
   "selectors": {},
   "pagination": {
-    "type": "page_param",
-    "param": "page",
-    "per_param": "per",
-    "per_max": 100,
-    "hard_cap": "3000건/30페이지 per 정렬(위젯 서버측 제한)"
+    "type": "none_latest_n",
+    "param": null,
+    "hard_cap": "최신 N건 전용. 커서를 뒤로 돌릴 방법이 없다 (2026-09-27 실측)"
   },
   "api_endpoints": [
     {
       "name": "crema_reviews",
-      "url": "https://review7.cre.ma/api/celimax.co.kr123/reviews",
+      "url": "https://review7.cre.ma/celimax.co.kr123/api/v1/reviews",
       "method": "GET",
       "params": {
-        "secure_device_token": "<정찰 시 위젯 SDK가 발급, 쿠키 불필요·세션마다 재취득>",
-        "product_code": "상품 URL의 /product/<slug>/<NUM>/ 의 NUM",
-        "widget_id": 2,
-        "widget_style": "list_v3",
-        "locale": "ko-KR",
-        "per": 100,
-        "page": "1..30",
-        "sort": "생략=추천순 / sort=registered_desc=최신순(2개 정렬만 distinct window)"
+        "limit": "반환할 최신 리뷰 수. 페이지네이션 파라미터 없음",
+        "sort": "registered_desc 는 200 을 주나 이 표본에서는 무param 과 구분되지 않음(미확정)"
       },
       "field_mapping": {
-        "상품명": "product_name",
-        "리뷰텍스트": "filtered_message",
-        "작성자명": "user_display_name",
-        "작성일": "created_at(앞10자)",
-        "총건수": "product_meta_reviews_count"
+        "리뷰내용": "message",
+        "작성자명": "author",
+        "작성일": "created_at",
+        "원본URL": "url (product_no= 와 crema-review_id= 파라미터를 포함)",
+        "상품이미지": "product_image_url (프로토콜 상대 경로)",
+        "리뷰이미지": "review_image_url (프로토콜 상대 경로, 없을 수 있음)"
+      },
+      "response_shape": {
+        "top_level": ["reviews", "reviews_count"],
+        "review_keys": ["author", "created_at", "message", "product_image_url", "review_image_url", "url"]
       }
     }
   ],
-  "notes": "Cafe24+Crema 위젯. 리뷰는 review7.cre.ma JSON API(/api/celimax.co.kr123/reviews)로 수집 — secure_device_token만 있으면 쿠키 없이 동작(token은 상품 페이지 정찰 시 cre.ma iframe src에서 추출, profile에 박지 말 것). per=100. ★위젯이 정렬당 3000건(30p)만 노출하는 하드캡 → 전체 리뷰(예: 상품44는 34891건) 수집 불가. distinct 정렬은 2개(추천순=무param, 최신순=sort=registered_desc)뿐이라 둘 합쳐 dedup해도 상품당 최대 ~4500건. product_code: 22=시카지우개패드, 29=나이아신아마이드시카세럼, 44=노니앰플. filtered_message는 cre.ma가 일부 키워드 마스킹(여드름→*드름)한 상태로 저장됨=원문 그대로는 불가. 작성자명은 소스에서 이미 부분마스킹(안소*).",
-  "last_used": "2026-06-30"
+  "notes": [
+    "Crema(cre.ma) 서드파티 리뷰 위젯. 엔드포인트는 서드파티 review7.cre.ma 다 — celimax.co.kr 이 아니다. 쿠키·토큰·Referer 없이 200 이다(2026-09-27 실측: secure_device_token 을 빈 값으로 보내도 바이트 동일). 예전 기록이 있던 '토큰을 상품 페이지에서 매번 재취득' 절차는 이 엔드포인트에서 불필요하다.",
+    "경로 규칙은 review<N>.cre.ma/<mid>/api/v1/<경로> 이다(mid 가 api 보다 앞). 예전 기록이던 /api/celimax.co.kr123/reviews 는 404 'Couldn't find Widget without an ID' 다. 규칙은 위젯 init.js 의 crema.util.review_url 정의를 읽어 확정한 것이다 — base_url + '/' + brand_code + '/' + path, brand_code = crema.info.mid.",
+    "이 엔드포인트는 브랜드 단위 최신 리뷰 피드다. product_code 파라미터는 무시된다 — product_code=22 와 product_code=99999(존재하지 않는 값)이 바이트 동일한 결과를 돌려주었다(2026-09-27 실측). 상품별 필터가 아니다.",
+    "페이지네이션 파라미터가 없다. limit=2 / +offset=2 / +page=2 셋 다 같은 review_id(648440·648439) 를 돌려준다. 옛 기록의 pagination.type=page_param 과 per_max=100 은 재현되지 않았다. 전체 리뷰를 다 뒤질 수 없다는 뜻이다.",
+    "reviews_count 는 총건수가 아니라 이번에 반환된 건수다(limit=2 이면 2, limit=5 이면 5). 총건수로 쓰면 안 된다 — 이 엔드포인트는 총건수를 어딘가에도 노출하지 않는다.",
+    "created_at 은 '2026/09/27' 처럼 슬래시 구분 10자다(ISO 가 아니다). author 는 소스에서 이미 부분마스킹된 값이다(예: '김지*').",
+    "옛 field_mapping 의 product_name·filtered_message·user_display_name·product_meta_reviews_count 는 이 응답에 존재하지 않는 필드였다(2026-09-27 실측). 위 매핑으로 대체했다."
+  ],
+  "last_used": "2026-06-30",
+  "verified_date": "2026-09-27"
 }
