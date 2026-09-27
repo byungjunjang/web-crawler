@@ -139,13 +139,16 @@ def test_contract_commands_are_runnable_with_venv_python():
         )
 
 
-def test_contract_lists_the_five_verification_commands():
-    """완료 선언의 근거가 되는 명령이 5개여야 한다 — 하나라도 빠지면 빈틈이다."""
-    assert len(CONTRACT_COMMANDS) == 5, (
-        f"계약 블록의 명령이 {len(CONTRACT_COMMANDS)}개다 (기대 5)\n{CONTRACT_COMMANDS}"
-    )
+def test_contract_lists_every_verification_command():
+    """완료 선언의 근거가 되는 명령을 빠짐없이 나열해야 한다 — 하나라도 빠지면 빈틈이다.
+
+    개수를 하드코딩하면 명령을 하나 추가할 때마다 이 테스트가 먼저 깨진다.
+    그래도 **찾아봐야 할 목록**은 하드코딩한다 — 그래야 정본이 실수로 명령을
+    잃어도(변이 2) 이 테스트가 잡는다.
+    """
     for required in ("-m pytest", "continuity_check.py", "sync_domain_list.py",
-                     "sync_codex_mirror.py", "sync_agent_contract.py"):
+                     "sync_codex_mirror.py", "sync_agent_contract.py",
+                     "session_handoff.py"):
         assert any(required in c for c in CONTRACT_COMMANDS), (
             f"계약에 `{required}` 가 없다 — 이 검사를 생략하면 드리프트를 커밋 전에 못 본다"
         )

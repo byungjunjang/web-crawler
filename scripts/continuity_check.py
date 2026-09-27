@@ -242,10 +242,10 @@ def _check_state(root, state, policy, report) -> None:
             "문자열이 아니라 JSON boolean 으로 적어라",
         )
 
-    _check_session_end(state, report)
+    _check_session_end(root, state, report)
 
 
-def _check_session_end(state, report) -> None:
+def _check_session_end(root, state, report) -> None:
     """`dirty: false` 는 "이 세션을 깨끗이 닫았다" 는 선언이다.
 
     그러면 독립 리뷰가 돌았다는 **기록**을 요구한다. 산문 규칙은 안 지키면 조용히
@@ -306,6 +306,22 @@ def _check_session_end(state, report) -> None:
             "session_end.independent_review.model 존재", repr(model),
             "어느 모델로 돌렸는지 남겨야 리뷰를 재현할 수 있다 "
             "(공백만 넣은 값도 없는 것으로 본다)",
+        )
+
+    # 사람이 읽는 종료 문서. 상태 파일만 남으면 다음 사람은 상태를 읽어야 하고,
+    # 그건 "읽을 수 있는 문서"가 아니다. 2026-09-27 사용자가 짚은 공백.
+    handoff = root / "docs/session-handoff.md"
+    if not handoff.exists():
+        report.fail(
+            "docs/session-handoff.md 존재 (dirty=false 일 때)",
+            "없음",
+            "세션을 닫았다면 다음 사람이 읽을 핸드오프 문서를 생성하라: "
+            "`python scripts/session_handoff.py write`",
+        )
+    elif not handoff.read_text(encoding="utf-8").strip():
+        report.fail(
+            "docs/session-handoff.md 가 비어 있지 않음", "빈 파일",
+            "`python scripts/session_handoff.py write` 로 다시 생성하라",
         )
 
 

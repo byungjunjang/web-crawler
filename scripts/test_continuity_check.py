@@ -149,14 +149,19 @@ def harness(tmp_path: pathlib.Path) -> pathlib.Path:
 
     (root / ".harness/state.json").write_text(json.dumps({
         # 기본 픽스처는 **진행 중**이다. dirty=false 는 "세션을 닫았다" 는 선언이라
-        # 독립 리뷰 기록을 요구하는데, 정상 상태 픽스처에서 그걸 요구하면 안 된다.
-        # 세션 종료 규칙은 아래 테스트들이 명시적으로 dirty=false 를 만든다.
+        # 독립 리뷰 기록 **그리고** 핸드오프 문서를 요구하는데, 정상 상태 픽스처에서
+        # 그걸 요구하면 안 된다. 세션 종료 규칙은 아래 테스트들이 명시적으로 만든다.
         "schema_version": "1.0",
         "active_work_id": "WORK-001",
         "stage": "GREEN",
         "dirty": True,
         "verified_commit": None,
     }, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 닫힌 세션을 다루는 테스트들이 쓸 핸드오프. 없으면 '핸드오프 없음' 이 추가
+    # 위반으로 잡혀서, 그 테스트가 보려는 규칙을 가리지 못한다.
+    (root / "docs").mkdir(parents=True, exist_ok=True)
+    (root / "docs/session-handoff.md").write_text(
+        "# 세션 핸드오프\n\n픽스처용 본문.\n", encoding="utf-8")
     return root
 
 

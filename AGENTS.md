@@ -28,6 +28,7 @@ python scripts/continuity_check.py
 python scripts/sync_domain_list.py --check
 python scripts/sync_codex_mirror.py --check
 python scripts/sync_agent_contract.py --check
+python scripts/session_handoff.py --check
 ```
 
 ### 완료 선언
@@ -43,7 +44,8 @@ python scripts/sync_agent_contract.py --check
 3. `.harness/state.json` 의 `dirty` 를 `false` 로 바꾸고
    `session_end.independent_review` 에 `status`(passed/findings_open)와
    `model` 을 적는다. `dirty: false` 인데 이 기록이 없으면 검사기가 실패한다.
-4. `python scripts/continuity_check.py` 를 다시 돌려 통과를 확인한다.
+4. `python scripts/session_handoff.py write` 로 핸드오프를 생성하고,
+   `python scripts/continuity_check.py` 를 다시 돌려 통과를 확인한다.
 
 ### 변경 직후
 

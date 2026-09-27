@@ -67,6 +67,8 @@ docs/plan-approvals/*
 !docs/task-contracts/
 docs/task-contracts/*
 !docs/task-contracts/HARNESS-001.md
+# 하네스가 세션 종료 시 생성하는 핸드오프 (읽는 사람이 있으므로 커밋한다)
+!docs/session-handoff.md
 
 # 세션 상태 (tdd-context-dev) — 로컬 전용. docs/ 와 같은 규약.
 .context/
