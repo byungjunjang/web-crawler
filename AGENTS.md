@@ -2,6 +2,11 @@
 계획·사용자 지시·결정의 정본은 공유 원장이다(브랜치·작업트리 공통). 맥락에 「계획 캡슐」이 없으면 작업 전에 `node .plan/bin/plan.mjs inject`를 실행해 읽고 캡슐 규칙을 따른다. 세션 끝에 `node .plan/bin/plan.mjs check --close`.
 <!-- PLAN-RULES:END -->
 
+## Git push 정책 (사용자 상시 승인, 2026-09-29)
+
+- 기능 브랜치(main·master 제외)의 push와 PR 생성은 사용자가 상시 승인했다. 검사를 통과한 커밋은 묻지 말고 push한다.
+- main·master 직접 push, force push, 병합, 배포는 매번 사용자에게 묻는다.
+
 <!-- BEGIN GENERATED: agent-contract -->
 ## 실행 계약 (모델 공통)
 
