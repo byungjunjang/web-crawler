@@ -318,6 +318,8 @@ export function renderCapsule(state, { excerpt = 70 } = {}) {
   if (verify.length) L.push(`완료 확인 대기(VERIFY, 사용자 선언 필요): ${verify.map((d) => d.id).join(', ')}`);
   const pending = pendingAdrs(state);
   if (pending.length) L.push(`계획 미반영 결정: ${pending.map((a) => a.id).join(', ')} → \`plan revise\` 또는 \`plan adr impact --none\` 필요`);
+  const proposed = [...state.adrs.values()].filter((a) => a.status === 'proposed');
+  if (proposed.length) L.push(`결정 대기 ADR(제안 상태, 사용자 수락·기각 필요): ${proposed.map((a) => a.id).join(', ')}`);
   L.push('규칙: ①순서·범위·완료는 사용자만 ②선택지 1번은 「지시대로 즉시 진행」, 막힘 증거 없는 지연안에 (권장) 금지 ③원장·캡슐·승인 계획은 `plan` CLI로만');
   L.push('④STATE·메모리·인계서에 원장에 없는 순서를 쓰지 않음 ⑤작업 폴더와 지시 대상이 다르면 먼저 알림 ⑥세션 끝 `plan check --close`');
   L.push(END);
@@ -345,12 +347,13 @@ export function pendingAdrs(state) {
 
 // ---------- ADR 파일 상태 ----------
 const ADR_WORDS = { 확정: 'accepted', accepted: 'accepted', 승인: 'accepted', 채택: 'accepted', 수락: 'accepted', 수락됨: 'accepted', proposed: 'proposed', 제안: 'proposed', superseded: 'superseded', 대체: 'superseded', 대체됨: 'superseded', deprecated: 'deprecated', 폐기: 'deprecated', rejected: 'rejected', 기각: 'rejected' };
-const STATUS_LINE = /^(\s*(?:[-*]\s*)?(?:\*\*)?(?:status|상태)(?:\*\*)?\s*[:：]\s*(?:\*\*)?\s*)([A-Za-z가-힣]+)(.*)$/im;
+const STATUS_LINE = /^(\s*(?:[-*]\s*)?(?:\*\*)?(?:status|상태)(?:\*\*)?\s*[:：.]\s*(?:\*\*)?\s*)([A-Za-z가-힣]+)(.*)$/im;
 // 인식 가능한 상태면 표준 값, 상태 줄이 없거나 자유 문장("재검토 필요", "단계적 교체 결정")이면 null.
+const STATUS_HEADING = /^#{2,4}\s*(?:status|상태)\.?\s*\n+\s*(?:[-*]\s*)?(?:\*\*)?([A-Za-z가-힣]+)/im; // "## 상태." 다음 줄에 값을 쓰는 형식
 export function adrFileStatus(text) {
-  const m = String(text).match(STATUS_LINE);
+  const m = String(text).match(STATUS_LINE) ?? String(text).match(STATUS_HEADING);
   if (!m) return null;
-  const w = m[2].toLowerCase();
+  const w = (m[2] ?? m[1]).toLowerCase();
   return ADR_WORDS[w] ?? ADR_WORDS[w.replace(/됨$/, '')] ?? null;
 }
 export function adrStatusRaw(text) {
@@ -359,7 +362,7 @@ export function adrStatusRaw(text) {
 function setAdrFileStatus(file, status, note) {
   const text = fs.readFileSync(file, 'utf8');
   if (!note && adrFileStatus(text) === status) return text; // 이미 같은 상태(한국어 표기 포함)면 파일을 건드리지 않는다.
-  const next = adrFileStatus(text) !== null
+  const next = adrFileStatus(text) !== null && STATUS_LINE.test(text)
     ? text.replace(STATUS_LINE, (_, pre) => `${pre}${status}${note ? ` ${note}` : ''}`)
     : text.replace(/^(# .*\n)/, `$1\nStatus: ${status}${note ? ` ${note}` : ''}\n`);
   fs.writeFileSync(file, next);
@@ -613,7 +616,8 @@ export function guard(cwd, payload) {
   const state = fold(readLedger(P).events);
   // 승인된 계획 파일은 편집을 막지 않는다(ADR·지시 반영을 위해 고쳐야 한다). 대신 승인 전 변경은 종료 게이트가 막는다.
   if (rel === CAPSULE_REL) return `${rel}은 원장에서 생성되는 보기다. 직접 수정하지 말고 \`plan\` CLI를 쓴다.`;
-  if (!fs.existsSync(abs) && COMPETING_PLAN.test(rel) && !/^docs\/plan\/REV-\d+/.test(rel) && !state.plans.some((p) => p.file === rel))
+  const planDirs = new Set(state.plans.map((p) => path.posix.dirname(p.file)).filter((d) => d !== '.'));
+  if (!fs.existsSync(abs) && COMPETING_PLAN.test(rel) && !/^docs\/plan\/REV-\d+/.test(rel) && !state.plans.some((p) => p.file === rel) && !planDirs.has(path.posix.dirname(rel)))
     return `${rel}: 계획 정본이 있는 프로젝트에서 새 계획·체크리스트 파일을 만들지 않는다. docs/plan/REV-NNN.md 초안을 쓰고 사용자 승인 후 \`plan revise\`로 등록한다.`;
   return null;
 }
@@ -829,7 +833,10 @@ export function main(argv, cwd = process.cwd()) {
       if (sub === 'import') {
         // 기존 ADR 폴더를 원장으로 이관. 파일 상태 줄을 그대로 읽고 파일은 바꾸지 않는다. 번호 충돌은 멈추고 보고한다.
         const dir = path.join(P.top, String(arg ?? 'docs/adr'));
-        const files = fs.readdirSync(dir).filter((f) => /\.md$/i.test(f)).sort();
+        const ref = typeof flags.ref === 'string' ? flags.ref : null; // 다른 브랜치에만 있는 ADR을 체크아웃 없이 이관
+        const relDir = path.relative(P.top, dir).split(path.sep).join('/');
+        const readAdr = (f) => (ref ? git(['show', `${ref}:${relDir}/${f}`], P.top) ?? '' : fs.readFileSync(path.join(dir, f), 'utf8'));
+        const files = (ref ? (git(['ls-tree', '--name-only', `${ref}:${relDir}`], P.top) ?? '').split('\n').filter(Boolean) : fs.readdirSync(dir)).filter((f) => /\.md$/i.test(f)).sort();
         const found = new Map();
         const problems = [];
         const unnumbered = [];
@@ -850,7 +857,7 @@ export function main(argv, cwd = process.cwd()) {
         const report = [];
         for (const [id, f] of found) {
           if (state.adrs.has(id)) continue;
-          const text = fs.readFileSync(path.join(dir, f), 'utf8');
+          const text = readAdr(f);
           const st = adrFileStatus(text);
           if (st === 'superseded') {
             const by2 = (text.match(STATUS_LINE)?.[3] ?? '').match(/ADR-?(\d{3,4})/i);
@@ -858,8 +865,8 @@ export function main(argv, cwd = process.cwd()) {
             continue;
           }
           const status = st ?? 'proposed';
-          appendEvent(P, { type: 'adr.status', id, status, file: rel(f), by: 'agent', note: st ? 'import' : 'import: 상태 표기 인식 불가' }, snapOf(id, text));
-          report.push(`${id} ${status}${st ? '' : ` (상태 표기 인식 불가: 「${adrStatusRaw(text) || '상태 줄 없음'}」 → 사용자 확인 필요)`}`);
+          appendEvent(P, { type: 'adr.status', id, status, file: rel(f), by: 'agent', note: `${st ? 'import' : 'import: 상태 표기 인식 불가'}${ref ? ` (브랜치 ${ref}에만 있음)` : ''}` }, snapOf(id, text));
+          report.push(`${id} ${status}${ref ? ` [${ref}]` : ''}${st ? '' : ` (상태 표기 인식 불가: 「${adrStatusRaw(text) || '상태 줄 없음'}」 → 사용자 확인 필요)`}`);
         }
         for (const x of later) {
           const cur = fold(readLedger(P).events).adrs.get(x.by);
@@ -877,7 +884,7 @@ export function main(argv, cwd = process.cwd()) {
         return out(report.join('\n') || '(새로 이관할 ADR 없음)');
       }
       if (sub === 'impact') {
-        appendEvent(P, { type: 'adr.impact', id: arg, impact: 'none', reason: flags.reason, by, quote: flags.quote });
+        consumeQuote(P, appendEvent(P, { type: 'adr.impact', id: arg, impact: 'none', reason: flags.reason, by, quote: flags.quote }));
         render(P);
         return out(`${arg} 계획 영향 없음 기록(${by}).`);
       }
