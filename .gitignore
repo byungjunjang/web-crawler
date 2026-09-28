@@ -75,3 +75,4 @@ docs/task-contracts/*
 
 # 세션 상태 (tdd-context-dev) — 로컬 전용. docs/ 와 같은 규약.
 .context/
+.plan/CAPSULE.md

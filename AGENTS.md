@@ -1,3 +1,7 @@
+<!-- PLAN-RULES:BEGIN (plan-continuity-harness v2) -->
+계획·사용자 지시·결정의 정본은 공유 원장이다(브랜치·작업트리 공통). 맥락에 「계획 캡슐」이 없으면 작업 전에 `node .plan/bin/plan.mjs inject`를 실행해 읽고 캡슐 규칙을 따른다. 세션 끝에 `node .plan/bin/plan.mjs check --close`.
+<!-- PLAN-RULES:END -->
+
 <!-- BEGIN GENERATED: agent-contract -->
 ## 실행 계약 (모델 공통)
 

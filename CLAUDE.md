@@ -1,3 +1,6 @@
+@AGENTS.md
+@.plan/CAPSULE.md
+
 <!-- BEGIN GENERATED: agent-contract -->
 ## 실행 계약 (모델 공통)
 
