@@ -379,7 +379,12 @@ export function withRules(agents) {
 export function mentions(body, id) {
   if (body.includes(id)) return true;
   const m = id.match(/^ADR-(\d{3,4})$/);
-  return !!m && new RegExp(`(ADR[\\s_-]?${m[1]}\\b|(^|[^0-9])${m[1]}-[a-z])`, 'i').test(body);
+  if (!m) return false;
+  if (new RegExp(`(ADR[\\s_-]?${m[1]}\\b|(^|[^0-9])${m[1]}-[a-z])`, 'i').test(body)) return true;
+  // 범위 표기 "ADR-0009~0013", "ADR 0009–0013"
+  const n = Number(m[1]);
+  for (const r of body.matchAll(/ADR[\s_-]?(\d{3,4})\s*[~–—-]\s*(?:ADR[\s_-]?)?(\d{3,4})/gi)) if (n >= Number(r[1]) && n <= Number(r[2])) return true;
+  return false;
 }
 
 // ---------- 검사 ----------
