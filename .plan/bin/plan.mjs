@@ -375,6 +375,13 @@ export function withRules(agents) {
   return [...lines.slice(0, at), ...(at ? [''] : []), RULES_BLOCK, '', ...lines.slice(at)].join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
+// 본문이 ID를 언급하는지. ADR은 "ADR-0014", "ADR 0014", "0014-파일명"처럼 번호만 쓴 표기도 인정한다.
+export function mentions(body, id) {
+  if (body.includes(id)) return true;
+  const m = id.match(/^ADR-(\d{3,4})$/);
+  return !!m && new RegExp(`(ADR[\\s_-]?${m[1]}\\b|(^|[^0-9])${m[1]}-[a-z])`, 'i').test(body);
+}
+
 // ---------- 검사 ----------
 export function check(P, { close = false } = {}) {
   const errors = [];
@@ -403,9 +410,12 @@ export function check(P, { close = false } = {}) {
     }
     if (sha256(buf) !== p.sha256) errors.push(`REV-${p.rev} 승인 계획 스냅샷이 승인 후 바뀌었다. 새 revision으로 개정한다.`);
     const body = buf.toString('utf8');
-    for (const t of p.triggers ?? []) if (!body.includes(t)) errors.push(`REV-${p.rev} 계획 본문이 트리거 ${t}를 언급하지 않는다(결정이 계획에 반영되지 않음).`);
+    for (const t of p.triggers ?? []) if (!mentions(body, t)) errors.push(`REV-${p.rev} 계획 본문이 트리거 ${t}를 언급하지 않는다(결정이 계획에 반영되지 않음).`);
     const wc = path.join(P.top, p.file);
-    if (p === state.plan && fs.existsSync(wc) && sha256(fs.readFileSync(wc)) !== p.sha256) warns.push(`${p.file}(작업 사본)이 승인본 REV-${p.rev}와 다르다. 이 브랜치의 사본은 정본이 아니다. 바꾸려면 새 revision으로 개정한다.`);
+    // 최신 승인본과 다른 계획 파일 = 승인되지 않은 계획 변경. 세션 중에는 경고, 세션 종료 때는 막는다(사용자 승인 → plan revise, 또는 되돌림).
+    const latestForFile = [...state.plans].reverse().find((q) => q.file === p.file);
+    if (p === latestForFile && fs.existsSync(wc) && sha256(fs.readFileSync(wc)) !== p.sha256)
+      (close ? errors : warns).push(`${p.file}이 승인본 REV-${p.rev}와 다르다(승인되지 않은 계획 변경). 사용자 승인을 받아 \`plan revise --file ${p.file}\`로 새 revision을 등록하거나 되돌린다.`);
   }
 
   // 3) ADR: 현재 브랜치에 파일이 있으면 상태 줄이 원장과 같아야 하고, 없으면 다른 브랜치에만 있는 결정이다.
@@ -596,9 +606,9 @@ export function guard(cwd, payload) {
   if (abs.startsWith(real(P.dir) + path.sep)) return '공유 원장(.git/plan)은 직접 수정하지 않는다. `plan` CLI를 쓴다.';
   const rel = path.relative(real(P.top), abs).split(path.sep).join('/');
   const state = fold(readLedger(P).events);
-  const protectedPaths = new Set([CAPSULE_REL, ...state.plans.map((p) => p.file)]);
-  if (protectedPaths.has(rel)) return `${rel}은 계획 정본(또는 생성물)이다. 직접 수정하지 말고 \`plan\` CLI를 쓴다(개정은 새 REV 파일 + \`plan revise\`).`;
-  if (!fs.existsSync(abs) && COMPETING_PLAN.test(rel) && !/^docs\/plan\/REV-\d+/.test(rel))
+  // 승인된 계획 파일은 편집을 막지 않는다(ADR·지시 반영을 위해 고쳐야 한다). 대신 승인 전 변경은 종료 게이트가 막는다.
+  if (rel === CAPSULE_REL) return `${rel}은 원장에서 생성되는 보기다. 직접 수정하지 말고 \`plan\` CLI를 쓴다.`;
+  if (!fs.existsSync(abs) && COMPETING_PLAN.test(rel) && !/^docs\/plan\/REV-\d+/.test(rel) && !state.plans.some((p) => p.file === rel))
     return `${rel}: 계획 정본이 있는 프로젝트에서 새 계획·체크리스트 파일을 만들지 않는다. docs/plan/REV-NNN.md 초안을 쓰고 사용자 승인 후 \`plan revise\`로 등록한다.`;
   return null;
 }
