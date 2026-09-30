@@ -9,16 +9,19 @@
     "item_root": "article.product_pod",
     "제목": "article.product_pod h3 a::attr(title)",
     "가격": "article.product_pod p.price_color::text",
-    "평점": "article.product_pod p.star-rating (class에서 One/Two/Three/Four/Five 추출 후 1~5로 매핑)",
-    "재고": "article.product_pod p.instock.availability::text"
+    "평점": "article.product_pod p.star-rating::attr(class)  (class 의 One~Five 를 1~5 로 매핑)",
+    "재고(목록·상태만)": "article.product_pod p.instock.availability::text",
+    "재고(상세·수량)": "p.instock.availability::text  →  정규식 r'\\((\\d+) available\\)'",
+    "상세링크": "article.product_pod h3 a::attr(href)  (상대경로 '../' 제거 후 /catalogue/ 에 결합)"
   },
   "pagination": {
     "type": "url_path",
     "url_template": "https://books.toscrape.com/catalogue/page-{page}.html",
     "items_per_page": 20,
-    "page_starts_at": 1
+    "page_starts_at": 1,
+    "total_pages": 50
   },
   "api_endpoints": [],
-  "notes": "크롤링 연습용 정적 사이트 — 기본 Fetcher.get()으로 끝. 평점은 텍스트가 아니라 CSS class(`star-rating One` 등) 에 매핑돼 있어서 RATING_MAP({One:1,...,Five:5})로 변환 필요. delay 1.0s면 충분. 봇 차단 전혀 없음 — 새 fetcher/패턴 검증할 때 reference 사이트로 활용.",
-  "last_used": "2026-03-25"
+  "notes": "연습용 정적 사이트 — plain_get 1단으로 끝. 봇 차단 없음. robots.txt 는 404(미발행). ★ 재고 주의: 목록 페이지는 전부 'In stock' 으로 균일해 정보가 없다. 실제 수량은 상세 페이지의 'In stock (22 available)' 에만 있으므로 수량이 필요하면 상세 1000건을 따로 받아야 한다(총 1050요청·delay 1.0s 기준 약 18분). 수량 불필요하면 목록 50요청 1분. 평점은 텍스트가 아니라 CSS class 다. 제목 중복 1건('The Star-Touched Queen')은 수집 오류가 아니라 가격·재고가 다른 별개 상품이므로 중복 제거하지 말 것. 2026-09-01 실측: 1000건 전량 수집, 4필드 채움률 100%.",
+  "last_used": "2026-09-01"
 }
