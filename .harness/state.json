@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
-  "active_work_id": "HARNESS-001",
+  "active_work_id": "PY311-001",
   "stage": "POST_CHECK",
   "dirty": false,
-  "verified_commit": "e725dc4fc929aba443506bc928febec8447ff160",
+  "verified_commit": "9e8384a",
   "session_end": {
     "independent_review": {
       "status": "passed",
       "model": "opencode-go/deepseek-v4.1-flash",
-      "findings_fixed": 4,
-      "note": "CHANGES REQUESTED 로 받은 D1~D4 중 D1[High]·D2[High]·D4[Medium] 를 수정했다. D1 이 근본이었다 — 다이제스트에 git HEAD 를 넣어 '다이제스트가 든 파일을 커밋하는' 행위가 그 다이제스트를 무효화해 고정점이 존재하지 않았다. HEAD 를 빼고, pytest 경과 시간을 제거해 write 를 멱등으로 만들고, 거짓말하던 헤더를 정직한 문장으로 고쳤다. 커밋 후 --check exit=0 으로 D1 해결을 확인했다."
+      "findings_fixed": 6,
+      "note": "CHANGES REQUESTED 로 받은 6건(H3/L3) 전부 수정했고 각각 GREEN 확인했다. [High] 3건 — (1) render docstring 의 '순수 함수' 선언이 1패스에서 거짓이라 정정, (2) 신규 테스트가 실제 REPO 문서를 읽어 디스크 상태를 판정하던 것을 tmp_path 기반 로직 검증으로 교체, (3) 인용 행에 '(이전 실행)' 출처 표시가 없던 것을 CARRIED_PREFIX 로 도입. [Medium] 1건 — 계약 밖 변경이라 PY311-001 계약에 '범위 밖에서 발견·고친 결함' 절로 명시. [Low] 2건 — 캐리 행이 옛 명령 문자열까지 되살리던 것을 결과 칸만 인용으로 변경, _constraint 의 KeyError 를 .get() 으로 교체. 리뷰어는 python 실행이 차단된 환경이라 실행 항목을 전부 UNVERIFIED 로 표시했고, 그 항목(신규 테스트 RED 재현·write 3회 멱등성·sha256 핀 대조·통과 수 재측정)은 메인이 직접 실행해 확인했다 — 상세는 docs/task-contracts/PY311-001.md 의 같은 절."
     }
   }
 }
