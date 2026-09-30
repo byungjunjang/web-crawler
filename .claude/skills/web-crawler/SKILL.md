@@ -7,7 +7,7 @@ description: URL과 수집 항목을 받아 사이트를 정찰하고 데이터�
 
 ## 절대 규칙
 
-1. **수집에는 Scrapling 또는 Playwright만 사용한다.** `requests`, `urllib`, `httpx`, `BeautifulSoup`로 직접 수집하지 않는다.
+1. **수집에는 Scrapling 또는 Playwright만 사용한다.** `requests`, `urllib`, `httpx`, `BeautifulSoup`로 직접 수집하지 않는다 — 사다리 A 래퍼(`plain_get`/`plain_session`)만 지문·Referer를 통제하고 소프트블록 검사와 이어지기 때문이다.
 2. **agent-browser는 정찰 전용이다.** agent-browser에서 `page.evaluate()`로 데이터를 추출하거나 DOM을 파싱하여 수집하는 것은 금지. agent-browser는 구조 파악, 스크린샷, 네트워크 감시에만 사용한다.
 3. **반드시 crawl_script.py를 생성하고 실행한다.** 스크립트 없이 인라인으로 수집하지 않는다.
 4. **정찰과 수집의 역할을 분리한다.** 정찰(agent-browser) → 수집(crawl_script.py 내 Scrapling/Playwright) → 출력(openpyxl).
@@ -46,17 +46,17 @@ Step 6: 엑셀 출력 & 보고
 
 ### Step 1-A: 도메인 프로필 확인
 
-재수집 시 기존 프로필이 있으면 정찰을 스킵할 수 있다.
+프로필이 있으면 notes·fetcher_type·antibot_strategy를 그대로 채택하고 Phase 0(1-B)과 정찰을 건너뛰어 Step 3으로 간다. last_used가 3개월 넘었거나 사용자가 '최신 구조로'를 요청했으면 정찰을 추가한다. consent 기록이 없는 사다리 B 프로필이면 Step 3의 이음매 통지를 거친다.
 
 ```python
 from domain_profile import DomainProfile
 profile_mgr = DomainProfile()
 if profile_mgr.exists(domain):
     profile = profile_mgr.load(domain)
-    # "이전 설정을 재사용할까요?"
-    #   → Yes(재사용): Phase 0(1-B) 건너뛰고 바로 Step 3 (검증된 레시피 보유)
-    #     단 consent 기록이 없는 사다리 B 프로필이면 이번이 최초 통과다 — Step 3 의 이음매 통지를 거친다.
-    #   → No(신규·미재사용)·프로필 없음: Step 1-B(Phase 0)부터 진행
+    # 묻지 않고 그대로 채택: Phase 0(1-B) 건너뛰고 바로 Step 3 (검증된 레시피 보유)
+    #   last_used 가 3개월 초과이거나 사용자가 '최신 구조로' 를 요청했으면 정찰을 추가한다.
+    #   consent 기록이 없는 사다리 B 프로필이면 이번이 최초 통과다 — Step 3 의 이음매 통지를 거친다.
+# 프로필 없음: Step 1-B(Phase 0)부터 진행
 ```
 
 수집 성공 후 프로필 저장:
@@ -232,8 +232,6 @@ agent-browser를 못 쓰고 현재 Codex 세션에 `chrome:control-chrome` 스�
 2. Browser Use 공개 API는 일반 document/XHR/fetch 요청 목록과 응답 status/header/body 캡처를 제공하지 않는다. read-only `evaluate()` scope에서도 `window.performance`/`document.defaultView.performance`를 사용할 수 없었다.
 3. 따라서 `/api/`·`/graphql/`·`/v1/` 후보나 JSON 응답 필드 매핑이 필요한 사이트는 **네트워크 감시 부분에 한해** 폴백 2의 Playwright `sync_api`(`page.on("response")`)를 병행한다. profile.json `notes`에는 `Codex 폴백 1 Chrome Browser Use + 폴백 2 network 보조`처럼 둘 다 기록한다.
 
-**실측 기준 (2026-08-19):** 실제 ChatGPT Chrome 확장 세션의 `books.toscrape.com`에서 DOM 스냅샷, `article.product_pod` 20개, `catalogue/page-{n}.html`, `Page 1 of 50`, 총 1000건을 재현했고 다음 페이지 클릭으로 `page-2.html → page-3.html` 패턴을 확인했다. `pageAssets`는 31개(이미지 21, 스크립트 6, 스타일시트 4)를 관찰했다. 이 사이트는 정적이라 XHR/API 후보는 없었다.
-
 > **여기서도 수집은 금지다.** Browser Use의 `evaluate()`/locator는 구조·셀렉터·페이지네이션·건수 판정에만 쓴다. DOM을 루프로 전량 추출하지 않는다. 수집은 반드시 `crawl_script.py` 안의 Scrapling 또는 Playwright로 한다.
 
 ### Step 2-A: 인증 처리
@@ -305,7 +303,7 @@ agent-browser를 못 쓰고 현재 Codex 세션에 `chrome:control-chrome` 스�
 - 선택 사실과 시각을 프로필 `consent` 블록에 남긴다 (Step 5-A). 이게 없으면 프로필 저장이 거부된다.
 - **이미 `consent` 기록이 있는 프로필이면 통지하지 않는다.** 그 기록 자체가 이 사용자가 이 도메인에서 통지받고 진행을 골랐다는 증거다(sticky). 프로필이 있어도 `consent`가 없다면(예: 사다리 A로만 수집돼 오다가 이번에 처음 사이트가 막은 경우) 이번이 최초로 이음매를 넘는 것이므로 그대로 통지한다.
 - **B → A → B 로 돌아온 도메인은 다시 묻는다.** 사다리 A 로 내려간 수집에서 프로필이 배포 대상이 되면 `save()` 가 `consent` 를 지운다 — 사용자가 언제 무엇을 통지받았는지를 배포되는 프로필에 실어 내보낼 수 없기 때문이다. 그래서 사이트가 나중에 새로 막기 시작하면 들고 있는 기록이 없고, 그대로 다시 통지한다. **그게 맞다 — 사이트가 새 보호를 건 것은 달라진 상황이고, 이음매를 다시 건너는 것은 새로운 사건이다.**
-- **CAPTCHA 도 같은 층위다** — 자동으로 풀지 않는 것은 그대로지만, 통지 없이 조용히 중단하지도 않는다. 다른 경로가 있는지 함께 제시한다.
+- **CAPTCHA 도 같은 층위다** — 통지 없이 조용히 넘지도, 조용히 중단하지도 않는다. '진행' 이면 멈추지 않고 이어간다: Cloudflare 챌린지·Turnstile 은 도구로 넘기고, 도구가 못 넘는 CAPTCHA 는 사용자가 보이는 창에서 직접 푼다 (아래 「CAPTCHA — 도구가 넘기거나, 사용자가 푼다」).
 
 ### 사다리 B — 상대가 막고 있다 (통지 후 진행)
 
@@ -316,6 +314,22 @@ agent-browser를 못 쓰고 현재 Codex 세션에 `chrome:control-chrome` 스�
 | **6** 실제 크롬 | 위 전부가 안 통함 | 흉내가 아니라 **실제 사용자 프로필 Chrome** 을 띄우고 그 안에서 fetch | `chrome_cdp` |
 
 > **B 는 순차가 아니다.** 고급 WAF 는 4·5 단이 원리적으로 통하지 않아 **바로 6 단**으로 간다. WAF capability 라우팅은 `references/antibot-strategies.md` 참조. **단 그 라우팅도 통지 이후에 일어난다.**
+
+### CAPTCHA — 도구가 넘기거나, 사용자가 푼다
+
+통지에서 '진행' 을 받은 뒤 CAPTCHA 를 만나면 **중단하지 않고** 아래 순서로 이어간다. 이음매 안쪽의 일이라 CAPTCHA 때문에 다시 묻지 않는다.
+
+1. **Cloudflare 관리형 챌린지·Turnstile** — 5단 `StealthyFetcher().fetch(url, solve_cloudflare=True)` 로 통과시킨다. 허용된 경로다 (`references/antibot-strategies.md § Cloudflare`).
+2. **도구가 못 넘는 CAPTCHA**(reCAPTCHA·hCaptcha 같은 대화형 퍼즐, 1번으로 안 풀린 Turnstile) — **보이는 창을 띄워 사용자가 직접 풀게 한다.**
+   `launch_chrome_cdp(url=<막힌 URL>, user_data_dir=".tmp/cdp_profile/<도메인>")` 로 전용 프로필 Chrome 을 띄우고
+   "열린 창에서 CAPTCHA 를 풀고 알려 주세요" 라고 안내한 뒤 기다린다. 사용자가 끝났다고 하면
+   `get_playwright_cdp_connection()` 으로 **그 브라우저에 붙어 같은 세션으로 수집을 이어간다.**
+   통과 쿠키(`cf_clearance` 등)는 그 브라우저의 지문·IP 에 묶여 있어 `plain_session` 으로 옮기면 다시 막히기 쉽다.
+   수집 중 CAPTCHA 가 다시 뜨면 중간 저장 후 같은 창에서 다시 풀게 하고 이어간다.
+   Chrome CDP 를 띄울 수 없는 환경이면 Step 2-A 의 `agent-browser --headed --profile <경로>` 창으로 같은 핸드오프를 한다.
+3. **외부 CAPTCHA 풀이 서비스는 쓰지 않는다** — 유료 풀이 API·풀이 대행에 페이지를 넘기지 않는다.
+
+프로필에는 실제로 쓴 값을 적는다: 1번으로 끝났으면 `antibot_strategy: stealthy`, 2번으로 이어갔으면 `chrome_cdp` 와 notes 에 "CAPTCHA 수동 풀이 필요". 코드는 `references/antibot-strategies.md § Cloudflare → StealthyFetcher`.
 
 ### 증상 → 칸 판별표
 
@@ -379,13 +393,13 @@ Step 3에서 결정한 전략에 맞는 코드 패턴을 `references/fetcher-pat
 ### 모든 수집 코드의 필수 요소
 
 1. **try/except + continue** — 한 페이지 실패가 전체를 중단시키지 않도록
-2. **consecutive_errors 추적** — 연속 5회 실패 시에만 최종 중단
+2. **consecutive_errors 추적** — 이미 통하던 티어가 연속 5회 실패하면 최종 중단
 3. **RateLimiter** — `scripts/utils.py`의 RateLimiter 사용
 4. **부분 데이터 저장** — 100건마다 raw_data.json에 중간 저장
-5. **FETCHER_CHAIN 에스컬레이션** — 연속 2회 실패 시 상위 티어로 전환. **체인은 사다리 A(3단)에서 끝난다** — 사다리 B 진입은 Step 3 의 통지 게이트를 거친다
+5. **FETCHER_CHAIN 에스컬레이션** — 아직 한 번도 통하지 않은 티어가 연속 2회 실패하면 상위 티어로 전환. **체인은 사다리 A(3단)에서 끝난다** — 사다리 B 진입은 Step 3 의 통지 게이트를 거친다
 6. **0건이면 기존 산출물을 덮지 않는다** — 같은 출력 폴더로 재실행하는 것은 흔한 일이고, 실패한 재실행이 성공했던 `raw_data.json` 을 빈 배열로 밀어버리면 "이번 실패" 가 "지난 성공 소실" 이 된다. 쓰기 직전에 `if not data: return` 로 막거나, 기존 파일이 있으면 `raw_data.json.bak` 로 옮긴 뒤 쓴다
 
-> **except 블록에서 반드시 `continue`** — 절대 `break`로 중단하지 않는다.
+> except 블록은 그 페이지만 건너뛰고(`continue`) 다음으로 간다. 루프를 끝내는 것은 필수 요소 2의 연속 실패 한도와 사다리 A 소진뿐이다.
 
 ### 출력 디렉토리 구조
 

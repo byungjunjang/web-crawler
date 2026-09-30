@@ -15,8 +15,6 @@
 > `SPA 세션 인터셉트`(3단) · `Jina Reader 폴백`(1단) · `종료 사유 분류`. 이 절들은 그 자체로
 > 이음매를 넘지 않는다. 다만 소프트블록이 잡히면 그 순간이 **이음매에 도달한** 순간이므로,
 > 사다리 B 로 올리기 전에 게이트로 돌아간다.
->
-> 능력은 전부 여기 그대로 있다. 바뀐 것은 **침묵**이다.
 
 사이트의 봇 차단 메커니즘별 대응 전략을 정리한 문서.
 SKILL.md Step 3에서 안티봇이 감지되면 이 문서를 참조한다.
@@ -62,7 +60,7 @@ v = detect_softblock(page.html_content, status=page.status,
 # 이음매를 건너뛰어도 된다는 뜻이 아니다. 사용자가 '진행' 을 고른 뒤에 capability 라우팅을 적용한다.
 ```
 
-> ⚠️ `_abck` 쿠키 **존재**만으로 Akamai를 판정하던 기존 로직보다, `~-1~` **값**이 더 날카롭다. 통과(`~0~`/`~N~`)면 수집 진행, 미통과(`~-1~`)면 차단으로 본다.
+> ⚠️ `_abck` 쿠키가 있으면 Akamai로 판별하고, 값이 `~-1~`이면 아직 차단된 상태, `~0~`/`~N~`이면 통과한 상태로 본다.
 
 ---
 
@@ -72,7 +70,7 @@ WAF를 "탐지"만 하지 말고 **"이 WAF를 뚫으려면 무엇이 필요한�
 
 | WAF 유형 | 필요 역량 | 올바른 도구 | curl_cffi/Stealthy로 되나? |
 |----------|----------|------------|---------------------------|
-| Cloudflare 기본 | JS 실행 | StealthyFetcher / DynamicFetcher | ✅ (Stealthy `solve_cloudflare=True`) |
+| Cloudflare 기본 (관리형 챌린지·Turnstile) | JS 실행 | StealthyFetcher / DynamicFetcher | ✅ (Stealthy `solve_cloudflare=True`) |
 | DataDome / PerimeterX / F5 / 단순 403 | TLS 지문 위조 | **curl_cffi 그리드** 먼저 → 안되면 브라우저 | ✅ 종종 그리드로 뚫림 |
 | **Akamai Bot Manager** | **실제 TLS 스택 + 행동** | **Chrome CDP (headed real Chrome)** | ❌ **안 됨** |
 
@@ -225,8 +223,7 @@ for batch_start in range(1, TOTAL_PAGES + 1, BATCH_SIZE):
 
 ### Chrome CDP 사용 불가 시
 
-StealthyFetcher → DynamicFetcher 순서로 폴백하되, 사용자에게 경고:
-"Akamai 보호 사이트이므로 Chrome CDP가 필요합니다"
+Chrome CDP를 쓸 수 없으면 4·5단은 Akamai에 원리적으로 통하지 않으므로 시도하지 않는다. 'Akamai 보호 사이트라 Chrome CDP가 필요합니다'라고 보고하고 중단한다.
 
 ---
 
@@ -340,7 +337,8 @@ with sync_playwright() as p:
 
 ### 감지 시그널
 - `cf_clearance` 쿠키
-- Cloudflare 챌린지 페이지 (5초 대기 화면)
+- Cloudflare 챌린지 페이지 (5초 대기 화면, `Just a moment...`)
+- Turnstile 위젯 (`challenges.cloudflare.com/turnstile`)
 
 ### 수집 패턴
 
@@ -349,9 +347,42 @@ from scrapling.fetchers import StealthyFetcher
 
 fetcher = StealthyFetcher()
 
-# Cloudflare 보호 사이트
+# Cloudflare 보호 사이트 — 관리형 챌린지·Turnstile 을 Scrapling 이 통과시킨다
 page = fetcher.fetch("<URL>", headless=True, solve_cloudflare=True)
 ```
+
+`solve_cloudflare=True` 는 허용된 통과 수단이다. 통과 뒤에도 `detect_softblock()` 이 챌린지로 판정하거나
+대화형 CAPTCHA(reCAPTCHA·hCaptcha)가 뜨면 멈추지 말고 아래 수동 풀이로 넘긴다.
+
+### 도구가 못 넘는 CAPTCHA → 사용자가 보이는 창에서 푼다
+
+전용 프로필로 **보이는** Chrome 을 띄워 사용자가 직접 풀게 하고, 그 브라우저에 붙어 같은 세션으로 이어간다.
+외부 CAPTCHA 풀이 서비스(유료 풀이 API·풀이 대행)는 쓰지 않는다.
+
+```python
+# 1) 창을 띄우고 멈춘다. 에이전트는 "열린 창에서 CAPTCHA 를 풀고 알려 주세요" 라고 안내하고
+#    대화로 답을 기다린다 (스크립트 안에서 input() 으로 기다리지 않는다).
+import sys
+sys.path.insert(0, './scripts')
+from chrome_cdp import launch_chrome_cdp
+
+PROFILE_DIR = ".tmp/cdp_profile/<도메인>"   # 전용 프로필. 평소 Chrome 프로필을 붙이지 않는다 (.tmp/ 는 gitignore)
+launch_chrome_cdp(port=9222, url="<막힌 URL>", user_data_dir=PROFILE_DIR)
+```
+
+```python
+# 2) 사용자가 풀었다고 하면 같은 브라우저에 붙어 이어간다.
+#    통과 쿠키는 이 브라우저의 지문·IP 에 묶여 있다 — plain_session 으로 옮기지 않는다.
+from chrome_cdp import get_playwright_cdp_connection
+
+browser, context, page = get_playwright_cdp_connection(9222)
+page.goto("<TARGET_URL>", wait_until="domcontentloaded")
+# 수집 루프는 § Akamai/고급 WAF 의 Chrome CDP 패턴과 같다 (RateLimiter·중간 저장 포함).
+# 루프 중 CAPTCHA 가 다시 뜨면 중간 저장 후 1) 의 안내로 돌아가 같은 창에서 다시 풀게 한다.
+```
+
+전용 프로필 디렉터리는 `close_chrome_cdp()` 가 지우지 않으므로 다음 실행에서 통과 상태가 남아 있을 수 있다.
+프로필에는 `antibot_strategy: chrome_cdp` 와 notes 에 "CAPTCHA 수동 풀이 필요" 를 적는다.
 
 ---
 
@@ -389,7 +420,7 @@ markdown = resp.text
 
 아래 패턴은 사다리 B 안에서의 티어 전환이다. **B 에 처음 들어가는 순간에는 이미 통지가 끝나 있어야 한다** (SKILL.md Step 3). B 안에서 4→5→6 으로 옮겨가는 것은 다시 묻지 않는다 — 이음매는 한 곳이고 이미 넘었다.
 
-범용 에스컬레이션 함수. 어떤 Fetcher를 사용해야 할지 불확실할 때 사용.
+통지 게이트에서 '진행'을 받은 뒤, 사다리 B 중 어느 티어가 통할지 모를 때 쓰는 에스컬레이션 함수.
 
 **순서: 평문 HTTP → curl_cffi 그리드(브라우저 X) → 브라우저 티어.** 그리드를 브라우저 앞에 둔다.
 

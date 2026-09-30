@@ -156,7 +156,7 @@ python scripts/sync_domain_list.py --check  # 어긋나면 exit 1
 
 **안전 규칙 (에이전트가 항상 지킴)**:
 - **자동 접근 차단을 만나면 통지 후 사용자 선택** — CAPTCHA·WAF·봇 탐지는 법적으로 같은 보호조치다. 어느 쪽이든 **자동으로 넘어가지 않고 한 번 알리고 사용자가 고른다**. '진행' 이면 그대로 간다 — 근거를 묻지도 검증하지도 않는다. 상세는 SKILL.md Step 3 "이음매 통지 게이트"
-- **CAPTCHA 자동 풀이 금지** — 통지와 별개다. reCAPTCHA/hCaptcha 를 프로그램으로 푸는 것은 하지 않는다. 사용자가 agent-browser 로 직접 푸는 것은 가능
+- **CAPTCHA 는 도구로 넘기거나 사용자가 직접 푼다** — 통지와 별개다. '진행' 뒤에는 CAPTCHA 때문에 수집을 멈추지 않는다. Cloudflare 관리형 챌린지·Turnstile 은 `StealthyFetcher(solve_cloudflare=True)`(5단)로 통과시킨다. 도구가 못 넘는 CAPTCHA(reCAPTCHA·hCaptcha 등)는 전용 프로필의 보이는 Chrome 창(`launch_chrome_cdp`)을 띄워 사용자가 직접 풀고, 그 브라우저 세션에 붙어 이어간다. 외부 CAPTCHA 풀이 서비스(유료 풀이 API·풀이 대행)는 쓰지 않는다. 상세는 SKILL.md Step 3 「CAPTCHA — 도구가 넘기거나, 사용자가 푼다」
 - **로그인 자격증명 자동 저장 금지** — ID/PW를 코드/메모리/파일에 저장하지 않는다. 사용자가 직접 브라우저에서 로그인 → 쿠키만 추출
 - **법적 위험이 큰 요청은 구체적으로 경고** — 저작권 침해 목적의 본문 복제(분량 축), 개인정보 대량 수집(성격 축), 명시적으로 금지된 재배포(목적 축). **어느 축이 왜 걸리는지 짚어서 알린 뒤 진행 여부는 사용자가 정한다** — 근거를 묻지도 검증하지도 않는다. **약관이 크롤링을 금지한다는 사실만으로는 여기 해당하지 않는다** — 그건 접근의 계약 층이고, 통지 게이트로 간다
 - **robots.txt 제한 발견 시 사용자 확인** — `Disallow: /` 또는 수집 대상 경로 차단 시 진행 여부를 묻는다
@@ -196,7 +196,6 @@ python scripts/sync_domain_list.py --check  # 어긋나면 exit 1
 
 **절대 agent-browser로 대량 수집하지 않는다.** 정찰과 수집은 분리. **Claude in Chrome과 ChatGPT Chrome Browser Use도 동일** — 정찰 전용이며 브라우저에서 전량 추출하는 것은 절대 규칙 2 위반.
 **원격 전용 환경(Cowork 등)에서는 정찰까지만 가능하다.** 샌드박스 egress 기본값이 "package managers only"라 대상 사이트 접속이 막히고, 통과시켜도 데이터센터 IP라 안티봇 프로필이 재현되지 않으며, VM에서 호스트 Chrome CDP(9222)에 못 붙어 브라우저 세션이 필요한 사이트 대응이 죽는다. 원격은 정찰 → profile.json 갱신까지, 수집은 로컬에서.
-**절대 profile 조회 없이 정찰부터 시작하지 않는다.** profile 우선.
 
 ## Fetcher 선택 의사결정 트리
 
@@ -228,7 +227,7 @@ Phase 0: 공인 우회로 있나? ──Yes──→ yt-dlp / RSS·Atom / oEmbed
 └──────────────────────────────────────────────────────────┘
 ```
 
-> **에스컬레이션 순서 = 가벼운 것부터.** 자동 체인은 `plain_get → plain_session → plain_dynamic` 으로 **사다리 A 에서 끝난다.** 그 위(`curl_cffi 그리드` · `StealthyFetcher` · `Chrome CDP`)는 능력으로 전부 남아 있되 **통지 이후에** 진입한다. Akamai 는 4·5 단이 원리적으로 안 통해 통지 후 바로 6단이다. 상세 코드는 `references/fetcher-patterns.md § F`, capability 판정 근거는 `references/antibot-strategies.md § WAF capability 라우팅`.
+> **에스컬레이션 순서 = 가벼운 것부터.** 자동 체인은 `plain_get → plain_session → plain_dynamic` 으로 **사다리 A 에서 끝난다.** 그 위(`curl_cffi 그리드` · `StealthyFetcher` · `Chrome CDP`)는 능력으로 전부 남아 있되 **통지 이후에** 진입한다. Akamai 는 4·5 단이 원리적으로 안 통해 통지 후 바로 6단이다. 상세 코드는 `.claude/skills/web-crawler/references/fetcher-patterns.md § F`, capability 판정 근거는 `.claude/skills/web-crawler/references/antibot-strategies.md § WAF capability 라우팅`.
 
 > **세 단 모두 래퍼를 쓴다.** 맨 `Fetcher.get()`/`FetcherSession()` 은 기본이 `impersonate="chrome"` + `stealthy_headers=True` 라 평문이 아니고, 맨 `DynamicFetcher.fetch()` 는 `google_search=True` 라 **`Referer: https://www.google.com/` 를 지어내 붙인다.** 사다리 A 는 통지 없이 도는 칸이므로 셋 다 끈 상태가 기본이다 — `plain_get()` · `plain_session()` · `plain_dynamic()`. (`fetcher_type` 에 기록하는 **어휘**는 그대로 `Fetcher`/`FetcherSession`/`DynamicFetcher` 다 — 래퍼 이름이 아니라 구현체 이름을 적는다.)
 
@@ -291,7 +290,8 @@ chrome.exe --remote-debugging-port=9222 \
 | HTTP 429 (Rate Limit) | 대기 시간 2배 증가 후 재시도. 누적 3회면 사용자 보고 |
 | HTTP 403 (Forbidden) | 사다리 A 가 남아 있으면 먼저 소진. 남은 게 없으면 **통지 게이트** → '진행' 이면 curl_cffi 그리드 → StealthyFetcher, 고급 WAF 시그널이면 바로 Chrome CDP |
 | 가짜 200 (소프트블록) | `detect_softblock()`로 감지 — 챌린지/빈 셸/`_abck=~-1~`. 수집 강행 금지. 상위 티어가 사다리 B면 **통지 후** 에스컬레이션 |
-| Cloudflare Challenge | 통지 게이트를 거친 뒤 `StealthyFetcher(solve_cloudflare=True)` (5단) |
+| Cloudflare Challenge·Turnstile | 통지 게이트를 거친 뒤 `StealthyFetcher(solve_cloudflare=True)` (5단) |
+| 도구가 못 넘는 CAPTCHA | 중단하지 않는다 — 보이는 Chrome 창(`launch_chrome_cdp`)에서 사용자가 풀고 그 세션으로 이어간다 (SKILL.md Step 3) |
 | 셀렉터 매칭 실패 | `adaptive=True`로 자가 치유 시도. 재실패 시 정찰 재실행 |
 | 페이지 구조 완전 변경 | 정찰 재실행 → profile.json의 selectors 갱신 |
 | JS 렌더링 실패 | DynamicFetcher로 에스컬레이션. `disable_resources=True`로 경량화 |

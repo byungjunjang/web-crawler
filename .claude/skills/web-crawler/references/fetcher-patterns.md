@@ -15,8 +15,8 @@ SKILL.md Step 3에서 결정된 전략에 맞는 패턴을 선택하여 사용�
 8. [Resume (이어서 수집)](#resume-이어서-수집)
 9. [데이터 정제](#스마트-데이터-정제)
 
-> 안티봇 관련 패턴(Akamai Chrome CDP, SPA 세션 인터셉트, Cloudflare)은
-> `antibot-strategies.md`에 별도 정리되어 있다.
+> 안티봇 관련 패턴(Akamai Chrome CDP, SPA 세션 인터셉트, Cloudflare `solve_cloudflare`,
+> 도구가 못 넘는 CAPTCHA 의 사용자 수동 풀이 핸드오프)은 `antibot-strategies.md`에 별도 정리되어 있다.
 
 ---
 
@@ -29,8 +29,6 @@ SKILL.md Step 3에서 결정된 전략에 맞는 패턴을 선택하여 사용�
 연속 실패 시 상위 티어로 자동 전환한다. **이 체인은 사다리 A(1~3단)에서 끝난다.**
 
 사다리 1~3단에서 사이트는 나를 막은 적이 없다 — 데이터가 있는 **위치**가 다를 뿐이다. 4단부터가 처음으로 "상대가 나를 식별하고 거절한" 상황이고, 거기부터는 **자동으로 넘어가지 않고 사용자에게 한 번 통지한다** (SKILL.md Step 3 "이음매 통지 게이트").
-
-우회 능력은 전부 그대로 있다. 자동 순차 진입에서 빠진 것뿐이다.
 
 ```python
 from utils import plain_dynamic, plain_get, plain_session
@@ -52,6 +50,7 @@ FETCHER_CHAIN = [
 results = []
 consecutive_errors = 0
 current_fetcher_idx = 0
+tier_ok = False          # 현재 티어가 한 번이라도 통했나
 
 for page_num in range(1, max_pages + 1):
     try:
@@ -65,20 +64,24 @@ for page_num in range(1, max_pages + 1):
 
         # ... 데이터 파싱 ...
         consecutive_errors = 0
+        tier_ok = True
 
     except Exception as e:
         consecutive_errors += 1
         logger.warning(f"Page {page_num} error: {e}")
 
-        if consecutive_errors >= 2 and current_fetcher_idx < len(FETCHER_CHAIN) - 1:
-            current_fetcher_idx += 1
-            logger.info(f"Escalating to {FETCHER_CHAIN[current_fetcher_idx][0]}")
-            consecutive_errors = 0
-        elif consecutive_errors >= 2:
-            # 사다리 A 를 다 썼다. 다음은 사다리 B — 자동으로 넘어가지 않는다.
-            logger.error("사다리 A 소진 — 사다리 B 진입은 사용자 통지가 필요하다 (SKILL.md Step 3)")
-            break
+        if not tier_ok and consecutive_errors >= 2:
+            # 이 티어는 처음부터 통하지 않는다 — 데이터가 다른 칸에 있다
+            if current_fetcher_idx < len(FETCHER_CHAIN) - 1:
+                current_fetcher_idx += 1
+                logger.info(f"Escalating to {FETCHER_CHAIN[current_fetcher_idx][0]}")
+                consecutive_errors = 0
+            else:
+                # 사다리 A 를 다 썼다. 다음은 사다리 B — 자동으로 넘어가지 않는다.
+                logger.error("사다리 A 소진 — 사다리 B 진입은 사용자 통지가 필요하다 (SKILL.md Step 3)")
+                break
         elif consecutive_errors >= 5:
+            # 통하던 티어가 연속 5회 실패 — 차단 전환·장애일 수 있다. 더 두드리지 않고 보고한다
             logger.error("5회 연속 실패, 중단")
             break
         continue
@@ -90,7 +93,8 @@ for page_num in range(1, max_pages + 1):
 ```
 
 **핵심 규칙:**
-- except 블록에서 반드시 `continue` — 페이지 하나의 실패로 전체를 중단하지 않는다
+- except 블록은 그 페이지만 건너뛰고(`continue`) 다음으로 간다. 루프를 끝내는 것은 연속 실패 한도와 사다리 A 소진뿐이다
+- **두 한도는 따로 걸린다.** 아직 한 번도 통하지 않은 티어는 연속 2회 실패면 다음 칸으로 올리고(마지막 칸이면 사다리 A 소진), 이미 통하던 티어는 일시 실패로 보고 연속 5회까지 버틴 뒤 중단한다
 - **체인은 3단에서 끝난다.** 사다리 A 를 소진하면 루프를 빠져나와 사용자에게 통지한다
 - **`plain_get`/`plain_session` 을 쓴다** — 맨 `Fetcher().get(url)` 은 기본값이 `impersonate="chrome"` + `stealthy_headers=True` 라 **평문이 아니다**. 헤더 16개에 가짜 `Referer: https://www.google.com/` 까지 붙는다
 - **두 인자를 함께 끈다.** 하나만 끄면 불일치 지문이 되어 오히려 더 잘 탐지된다
