@@ -348,11 +348,21 @@ def plain_dynamic(url: str, **kw):
 
 # ── robots.txt — 표지판이지 잠금장치가 아니지만, 무시했다는 사실은 정황이 된다 ──
 def _fetch_robots(url: str, timeout: int = 10):
-    """robots.txt 를 가져와 (본문, status) 반환. 테스트에서 monkeypatch 한다."""
+    """robots.txt 를 가져와 (본문, status) 반환. 테스트에서 monkeypatch 한다.
+
+    urlopen 은 404 를 HTTPError 로 던진다. 404 는 "파일 없음 = 제한 없음" 이라는 정상 응답이므로
+    예외가 아니라 status 로 돌려준다. 그 밖의 HTTP 오류는 그대로 올려 error 로 보고되게 둔다.
+    """
+    from urllib.error import HTTPError
     from urllib.request import Request, urlopen
     req = Request(url, headers={"User-Agent": "web-crawler-agent"})
-    with urlopen(req, timeout=timeout) as resp:      # noqa: S310 (http/https만 들어온다)
-        return resp.read().decode("utf-8", errors="replace"), resp.status
+    try:
+        with urlopen(req, timeout=timeout) as resp:      # noqa: S310 (http/https만 들어온다)
+            return resp.read().decode("utf-8", errors="replace"), resp.status
+    except HTTPError as exc:
+        if exc.code == 404:
+            return "", 404
+        raise
 
 
 def check_robots(url: str, user_agent: str = "*") -> dict:
