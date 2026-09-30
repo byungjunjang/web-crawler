@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+# ↑ 지우지 말 것. pip 은 requirements 파일을 로케일 인코딩으로 읽는다
+#   (한국어 Windows = cp949). 이 선언이 없으면 아래 한글 주석에서
+#   UnicodeDecodeError 가 나며 설치가 통째로 실패한다. pip 은 첫 두 줄의
+#   PEP 263 선언을 인식한다 — 구버전 pip 에서도 동작한다.
 # 범용 웹 크롤링 에이전트 — Python 의존성
 #
 # 신규 환경은 한 방 설치 권장:
