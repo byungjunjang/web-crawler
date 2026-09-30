@@ -102,12 +102,53 @@ def input_digest(root: pathlib.Path) -> str:
     return hashlib.sha256(f"{state}\x00{policy}".encode("utf-8")).hexdigest()
 
 
+_TABLE_ROW = re.compile(r"^\|\s*(baseline|연속성|도메인 목록|Codex 미러|실행 계약)\s*\|")
+
+
+def previous_rows(root: pathlib.Path) -> dict[str, str]:
+    """디스크의 **이전 문서**에서 실측 표의 *결과 칸*만 읽는다.
+
+    왜 이게 필요한가 (2026-10-01 실측 재현):
+    `write` 의 1패스가 실측 표를 비우면 그 산출물이 디스크에 놓이는 동안
+    `test_handoff_quotes_actual_command_results` 가 그 자리에서 실패하고,
+    2패스가 **거짓 exit=1** 을 기록한다. 실측: 문서 `exit=1 — 1 failed` /
+    즉시 baseline `577 passed`. 순환이 성립한다.
+    이전 표를 살리면 1패스 산출물에도 통과 수가 남으므로 자기참조가 통과한다.
+
+    **결과 칸만** 읽고 명령 칸은 버린다 (2026-10-01 독립 리뷰 [Low]).
+    행을 통째로 복사하면 계약 명령이 바뀐 뒤에도 옛 문자열을 되살린다 —
+    명령 칸은 `render` 가 현재 `VERIFICATION_COMMANDS` 로 재구성한다.
+    """
+    target = root / HANDOFF_REL
+    if not target.exists():
+        return {}
+    rows: dict[str, str] = {}
+    for line in target.read_text(encoding="utf-8").splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) == 3 and _TABLE_ROW.match(line.strip()) and cells[2]:
+            rows[cells[0]] = cells[2]
+    return rows
+
+
+# 인용한 값이 **이전 실행**의 것임을 표에 박는다 (2026-10-01 독립 리뷰 [High]).
+# 표시가 없으면 "측정 시점 HEAD: <현재>" 아래에 더 오래된 통과 수가 지금
+# 측정한 것처럼 놓여 사람이 오독한다.
+CARRIED_PREFIX = "(이전 실행) "
+
+
 def render(root: pathlib.Path, run_verification: bool) -> str:
     """정본(state.json)과 git 실측으로 핸드오프 본문을 만든다.
 
-    반환 문자열은 순수 함수다 — 같은 입력이면 언제나 같은 출력이 난다.
-    그래야 `--check` 가 "바뀌었나?" 를 물을 수 있다.
-    `run_verification=False` 면 실측 표를 비워 두고 만든다(순수 비교용).
+    ⚠ 순수하지 **않다** (2026-10-01 독립 리뷰 [High] 로 정정).
+    `run_verification=True` 는 `state/policy/git` 만 읽어 순수하지만,
+    `run_verification=False`(1패스)는 **디스크의 이전 문서**에서 실측 표를
+    가져온다. 두 번째 입력은 `input_digest` 가 추적하지 않으므로
+    "같은 입력이면 같은 출력"은 1패스에서 성립하지 않는다.
+    그래도 `--check` 가 안전한 이유: `--check` 는 `render` 를 부르지 않고
+    다이제스트(`state`+`policy`)만 비교한다. 그리고 최종 문서는 2패스가 쓴다.
+
+    1패스는 실측을 **다시 돌리지 않고** 이전 표의 결과 칸을 인용한다
+    (`CARRIED_PREFIX` 로 출처를 표시). 표가 비면 빈 칸으로 둔다.
     """
     state = json.loads((root / ".harness/state.json").read_text(encoding="utf-8"))
     policy = json.loads((root / ".harness/policy.json").read_text(encoding="utf-8"))
@@ -144,19 +185,31 @@ def render(root: pathlib.Path, run_verification: bool) -> str:
         "",
         "## 실측 검증 (write 시점에 돌린 결과다)",
         "",
-        f"기준선: `{head}` · 브랜치 `{branch}`",
+        f"측정 시점 HEAD: `{head}` · 브랜치 `{branch}`",
+        "",
+        "> ⚠ **출처**: 아래 결과는 이 문서를 커밋하기 **전의 작업 트리**에서 돌았다.",
+        "> `write` 는 커밋 전에 불리므로 위 해시는 이 문서를 담는 커밋의 **부모**다.",
+        "> 그래서 그 커밋을 체크아웃해 `baseline` 을 다시 돌리면 통과 수가 **다를 수 있다** —",
+        "> 아래 수는 '이 커밋의 트리'가 아니라 '그 커밋 직전의 작업 트리'의 실측이다.",
+        "> 이 문서를 커밋한 다음 다시 생성하면(HEAD 가 바뀐다) 수치가 맞춰진다.",
         "",
         "| 항목 | 명령 | 결과 |",
         "|---|---|---|",
     ]
+    carried = previous_rows(root) if not run_verification else {}
     for label, command in VERIFICATION_COMMANDS:
         if run_verification:
             code, tail = _run(_argv(command), cwd=root)
             verdict = "exit=0 ✅" if code == 0 else f"exit={code} ❌"
             detail = _stable(tail) or "출력 없음"
+            lines.append(f"| {label} | `{command}` | {verdict}{' — ' + detail if detail else ''} |")
+        elif label in carried:
+            # 이전 문서의 **결과 칸**을 인용한다. 명령 칸은 현재 값으로 재구성하고
+            # 출처 표시를 붙인다 — 다이제스트만 갱신되는 1패스.
+            lines.append(f"| {label} | `{command}` | {CARRIED_PREFIX}{carried[label]} |")
         else:
-            verdict, detail = "(실측 안 함)", ""
-        lines.append(f"| {label} | `{command}` | {verdict}{' — ' + detail if detail else ''} |")
+            # 이전 표가 없다(최초 생성). 빈 칸 — 숫자를 지어내지 않는다.
+            lines.append(f"| {label} | `{command}` | (이전 실측 없음) |")
 
     lines += [
         "",
@@ -191,10 +244,26 @@ def render(root: pathlib.Path, run_verification: bool) -> str:
 
 
 def write(root: pathlib.Path) -> int:
+    """2패스로 쓴다. 1패스는 **다이제스트만** 갱신하고 2패스는 실측까지 한다.
+
+    왜 2패스인가 (2026-09-28 독립 리뷰 finding, 재현 확인):
+    `render(run_verification=True)` 는 baseline 으로 pytest 를 돌리는데,
+    그 안의 `test_check_passes_against_committed_handoff` 가 `session_handoff --check` 를
+    호출한다. 그런데 그 시점에 디스크의 핸드오프는 **옛 다이제스트**다 — `write` 는
+    아직 아무것도 쓰기 전이다. 그래서 그 검사(와 인접한 실측 수치 검사)가 실패하고,
+    문서에 `exit=1 ❌` 가 **참이 아닌 값**으로 기록된다.
+
+    ⚠ 1패스가 실측 표까지 **비우면** 이 수정은 절반만 된다 (2026-10-01 실측).
+    표가 빈 문서가 디스크에 있는 동안 `test_handoff_quotes_actual_command_results` 가
+    거기서 실패하고, 2패스는 그대로 `exit=1 — 1 failed` 를 적는다. 즉시 돌린 실제
+    baseline 은 `577 passed` 였다. 그래서 1패스는 `previous_rows()` 로 **이전 표를
+    살려** 쓴다 — 유일한 차이는 다이제스트다.
+    """
     target = root / HANDOFF_REL
     target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(render(root, run_verification=False), encoding="utf-8")
     target.write_text(render(root, run_verification=True), encoding="utf-8")
-    print(f"[session_handoff] {HANDOFF_REL} 생성 (실측 포함)")
+    print(f"[session_handoff] {HANDOFF_REL} 생성 (실측 포함, 2패스)")
     return 0
 
 
