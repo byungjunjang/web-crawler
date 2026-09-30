@@ -1,5 +1,6 @@
 """requirements.txt 가 '직접 import 하는 것은 직접 선언한다' 원칙을 지키는지 검사."""
 from pathlib import Path
+import re
 
 import pytest
 
@@ -23,6 +24,63 @@ def _declared():
 def test_direct_imports_are_declared(package):
     assert package in _declared(), (
         f"{package} 를 코드가 직접 쓰는데 requirements.txt 에 선언되지 않았습니다"
+    )
+
+
+def _constraint(package: str) -> str:
+    """선언된 줄에서 버전 제약식만 떼어낸다 (패키지명·extras 는 제외).
+
+    `KeyError` 로 죽지 않는다 (2026-10-01 독립 리뷰 [Low]) — 패키지가
+    declarations 에서 사라지면 아래 테스트가 **메시지와 함께** 실패해야 한다.
+    예외로 죽으면 왜 깨졌는지 읽는 사람이 모른다.
+    """
+    line = _declared().get(package, "")
+    for index, char in enumerate(line):
+        if char in "<>=":
+            return line[index:].strip()
+    return ""
+
+
+def _version_upper_bound(constraint: str) -> str | None:
+    """**버전** 상한만 뽑는다 — 환경 마커의 `<` 로 통과하지 못하게 한다.
+
+    `python_version<"3.14"` 에도 `<` 가 있으므로 substring 검사만 하면
+    "버전 상한이 없는데 통과"하는 구멍이 생긴다(독립 리뷰 finding).
+    """
+    match = re.search(r"<\s*(\d[\w.]*)", constraint)
+    return match.group(1) if match else None
+
+
+def test_playwright_has_upper_bound():
+    """상한은 1.64 가 나왔을 때 patchright 를 두고 독주하는 브레이크다(ADR-002).
+
+    결합 그 자체를 강제하지는 못한다 — 제약식이 같아도 해석된 *패치* 버전은
+    달라질 수 있다(patchright 만 1.60.1/1.61.2/1.62.3 같은 추가 패치가 있다).
+    강제하는 것은 "한쪽만 상한을 올리는 변경"이다. 그건 이 검사가 먼저 잡는다.
+    """
+    upper = _version_upper_bound(_constraint("playwright"))
+    assert upper is not None, (
+        f"playwright 에 버전 상한이 없습니다 (제약식={_constraint('playwright')!r}) — "
+        "1.64 출시에 patchright 를 두고 독주할 수 있습니다. "
+        "requirements.txt 의 두 줄에 같은 상한을 두세요"
+    )
+    assert _version_upper_bound(_constraint("patchright")) == upper, (
+        f"상한이 다릅니다 — playwright={upper} vs patchright="
+        f"{_version_upper_bound(_constraint('patchright'))} (ADR-002)"
+    )
+
+
+def test_playwright_and_patchright_constraints_identical():
+    """두 줄의 제약식을 같게 둔다 — 한쪽만 고치는 변경을 이게 먼저 잡는다."""
+    playwright = _constraint("playwright")
+    patchright = _constraint("patchright")
+    assert playwright and patchright, (
+        f"제약식이 비었습니다 (playwright={playwright!r}, patchright={patchright!r}) — "
+        "두 줄 모두에 버전 제약을 적어야 결합이 표현된다 (ADR-002)"
+    )
+    assert playwright == patchright, (
+        f"playwright={playwright!r} 와 patchright={patchright!r} 가 다릅니다 — "
+        "두 줄의 제약식을 같게 두세요 (ADR-002)"
     )
 
 
