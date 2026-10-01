@@ -21,7 +21,7 @@
 
 ## 실측 검증 (write 시점에 돌린 결과다)
 
-측정 시점 HEAD: `beb6e31` · 브랜치 `chore/plan-harness-v2`
+측정 시점 HEAD: `aa3c573` · 브랜치 `chore/plan-harness-v2`
 
 > ⚠ **출처**: 아래 결과는 이 문서를 커밋하기 **전의 작업 트리**에서 돌았다.
 > `write` 는 커밋 전에 불리므로 위 해시는 이 문서를 담는 커밋의 **부모**다.
@@ -39,6 +39,7 @@
 
 ## 이번 세션에 한 일
 
+- aa3c573 docs(contract): ubuntu/x86_64 러너 통과를 실측해 UNVERIFIED 에서 닫는다
 - beb6e31 chore(harness): 세션 종료 — 상태를 닫고 핸드오프를 생성한다
 - 9e8384a feat(requirements): playwright·patchright 결합을 파일 제약으로 강제한다
 - 07dad93 fix(harness): write 가 거짓 exit=1 을 기록하는 순환을 닫는다
@@ -50,7 +51,6 @@
 - 32ca3f2 wip: 계획 하네스 설치 전 사용자 변경 보존
 - dca2779 chore(harness): 세션 종료 — 핸드오프 생성기를 독립 리뷰 결과로 교정하고 상태를 닫는다
 - e725dc4 fix(harness): 다이제스트에서 HEAD 를 빼 고정점 불가 구조를 없앤다
-- c9bdd14 chore(harness): 커밋으로 HEAD 가 바뀌어 생성이 먼저 필요하므로 핸드오프 재생성
 
 ## 남은 것 / 다음 세션
 
