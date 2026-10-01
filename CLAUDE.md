@@ -66,28 +66,9 @@ python scripts/session_handoff.py --check
 
 ## 최초 환경 셋업 (클론 직후 1회, 수집 전 확인)
 
-수집 시도 전에 환경을 준비한다. **한 명령**으로 단계별 설치+검증(이미 된 단계는 skip):
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\setup.ps1     # Windows (venv 자동 생성)
-```
-```bash
-python -m venv .venv && . .venv/bin/activate && python scripts/bootstrap.py   # macOS/Linux
-```
-
-수동/디버깅 시 실제 동작 명령:
-```bash
-pip install -r requirements.txt          # scrapling[fetchers] 포함 — fetcher 런타임 일괄
-scrapling install                        # Chromium 1회 (내부에서 playwright install chromium 수행 — 따로 또 X)
-npm.cmd install -g agent-browser ; agent-browser.cmd install   # 표준 정찰 도구 (PowerShell은 .cmd)
-python scripts/preflight.py              # 검증: core / agent-browser 분리 PASS·WARN·FAIL
-```
-
-- `python -m scrapling`은 동작 안 함 → `scrapling install`(venv 활성화) 또는 `.\.venv\Scripts\scrapling.exe install`.
-- 검증은 `scripts/preflight.py`(설치 안 함). core 통과·agent-browser 실패면 "전체 설치 미완료"(exit 1).
-- 전체 가이드(비개발자용 포함)는 `README.md`의 "처음 설치하기" 참조.
-
----
+셋업 상세는 [`docs/agents-reference.md`](docs/agents-reference.md) 로 옮겼다 (원문 그대로).
+가장 쉬운 길은 레포 링크와 함께 *"환경 셋업해줘"* 라고 하는 것이다 — 절차 전체는
+그 문서와 [`README.md`](README.md) "처음 설치하기" 에 있다.
 
 ## ★ 절대 규칙 0: 도메인 히스토리 우선 (모든 수집의 시작)
 

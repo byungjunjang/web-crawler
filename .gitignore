@@ -58,6 +58,9 @@ docs/
 # 판단 근거는 docs/decisions/ADR-001-harness-lean-install.md.
 !docs/
 docs/*
+# 에이전트 상세 참조 — AGENTS.md·CLAUDE.md 가 링크한다. 무시되면 clean clone 에서
+# 그 링크가 끊긴다(2026-10-01 HARNESS-003).
+!docs/agents-reference.md
 !docs/decisions/
 docs/decisions/*
 !docs/decisions/ADR-001-harness-lean-install.md
