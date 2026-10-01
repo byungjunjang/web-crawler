@@ -21,7 +21,7 @@
 
 ## 실측 검증 (write 시점에 돌린 결과다)
 
-측정 시점 HEAD: `f8e85ad` · 브랜치 `chore/plan-harness-v2`
+측정 시점 HEAD: `ab0f712` · 브랜치 `chore/plan-harness-v2`
 
 > ⚠ **출처**: 아래 결과는 이 문서를 커밋하기 **전의 작업 트리**에서 돌았다.
 > `write` 는 커밋 전에 불리므로 위 해시는 이 문서를 담는 커밋의 **부모**다.
@@ -31,7 +31,7 @@
 
 | 항목 | 명령 | 결과 |
 |---|---|---|
-| baseline | `python -m pytest -q -k "not e2e"` | exit=0 ✅ — 580 passed, 14 deselected |
+| baseline | `python -m pytest -q -k "not e2e"` | exit=0 ✅ — 585 passed, 14 deselected |
 | 연속성 | `python scripts/continuity_check.py` | exit=0 ✅ — 연속성 검사 통과 — 포인터와 실제 파일이 일치한다 |
 | 도메인 목록 | `python scripts/sync_domain_list.py --check` | exit=0 ✅ — [OK] 도메인 목록 최신 — 14개 |
 | Codex 미러 | `python scripts/sync_codex_mirror.py --check` | exit=0 ✅ — 출력 없음 |
@@ -39,6 +39,7 @@
 
 ## 이번 세션에 한 일
 
+- ab0f712 chore(harness): 세션 종료 — HARNESS-003 리뷰 기록을 반영한다
 - f8e85ad docs(harness): 진입 문서를 지도 역할로 줄이고 중복 절을 원문 이관한다 (HARNESS-003)
 - 9207374 chore(harness): 세션 종료 — HARNESS-002 리뷰 기록을 반영하고 상태를 갱신한다
 - 986bfdf fix(harness): 핸드오프가 경쟁 정본(.context)을 지시하던 것을 정본으로 바로잡는다
@@ -50,7 +51,6 @@
 - 73367de chore(plan): 하네스 CLI 갱신(제안 ADR 캡슐 표시, ADR 상태 표기 확대, 기준선 계획 폴더 새 문서 허용)
 - 92ce606 docs(agents): git push 정책 명시(기능 브랜치 push·PR은 사용자 상시 승인, main·force·병합·배포는 매번 승인)
 - be9a8ee chore(plan): 하네스 CLI 갱신(ADR 범위 표기 인정)
-- d59108a chore(plan): 하네스 CLI 갱신(계획 편집 허용+승인 전 변경은 종료 게이트, ADR 번호 표기 인정)
 
 ## 남은 것 / 다음 세션
 

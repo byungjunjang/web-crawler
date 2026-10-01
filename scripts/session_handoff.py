@@ -102,11 +102,49 @@ def input_digest(root: pathlib.Path) -> str:
     return hashlib.sha256(f"{state}\x00{policy}".encode("utf-8")).hexdigest()
 
 
-_TABLE_ROW = re.compile(r"^\|\s*(baseline|연속성|도메인 목록|Codex 미러|실행 계약)\s*\|")
+# 라벨의 SSOT 는 `VERIFICATION_COMMANDS` 다. 여기에 손으로 다시 적으면 한쪽만
+# 고쳤을 때 그 행이 조용히 캐리에서 빠지고, baseline 이면 거짓 exit=1 로 이어진다
+# (2026-10-01 독립 리뷰 [Low]).
+_TABLE_ROW = re.compile(
+    r"^\|\s*(" + "|".join(re.escape(label) for label, _ in VERIFICATION_COMMANDS) + r")\s*\|"
+)
+
+# 인용한 값이 **이전 실행**의 것임을 표에 박는다 (2026-10-01 독립 리뷰 [High]).
+# 표시가 없으면 "측정 시점 HEAD: <현재>" 아래에 더 오래된 통과 수가 지금
+# 측정한 것처럼 놓여 사람이 오독한다.
+CARRIED_PREFIX = "(이전 실행) "
+
+# 이전 표가 없을 때의 빈 칸. **측정값이 아니다** — `_parse_rows` 가 이걸 거르지
+# 않으면 커밋본 폴백이 안 걸려 거짓 exit=1 이 한 번 기록된다 (2026-10-01 실측).
+NO_PREVIOUS = "(이전 실측 없음)"
+
+
+def _parse_rows(text: str) -> dict[str, str]:
+    """마크다운 표에서 `라벨 → 결과` 만 뽑는다. 결과 칸은 **마지막부터** 모은다.
+
+    결과 칸은 임의의 명령 출력(`_stable`)이라 `|` 를 담을 수 있다 —
+    `continuity_check` 위반 메시지가 `|` 를 포함한다. 예전 파서는 열 수를 3으로
+    고정해 그런 행을 조용히 탈락시켰다 (2026-10-01 독립 리뷰 [Low]).
+    캐리 접두는 벗겨 멱등하게 만든다 — 안 벗기면 재실행마다 중첩된다.
+    """
+    rows: dict[str, str] = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not _TABLE_ROW.match(stripped):
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if len(cells) < 3:
+            continue
+        result = " | ".join(cells[2:]).strip()
+        # 빈 칸(측정 없음)은 측정값이 아니다 — 거르지 않으면 커밋본 폴백이
+        # 안 걸려 거짓 exit=1 이 기록된다.
+        if result and result != NO_PREVIOUS:
+            rows[cells[0]] = result.removeprefix(CARRIED_PREFIX)
+    return rows
 
 
 def previous_rows(root: pathlib.Path) -> dict[str, str]:
-    """디스크의 **이전 문서**에서 실측 표의 *결과 칸*만 읽는다.
+    """이전 문서에서 실측 표의 *결과 칸*만 읽는다. 없으면 커밋본으로 폴백한다.
 
     왜 이게 필요한가 (2026-10-01 실측 재현):
     `write` 의 1패스가 실측 표를 비우면 그 산출물이 디스크에 놓이는 동안
@@ -115,25 +153,21 @@ def previous_rows(root: pathlib.Path) -> dict[str, str]:
     즉시 baseline `577 passed`. 순환이 성립한다.
     이전 표를 살리면 1패스 산출물에도 통과 수가 남으므로 자기참조가 통과한다.
 
+    **커밋본 폴백** (2026-10-01 독립 리뷰 [Medium] 후속): 디스크 표가 손실된
+    상태로 `write` 하면 1패스가 빈 표가 되고 첫 실측이 거짓 exit=1 을 **한 번**
+    기록한다(실측 확인 — 그다음 `write` 는 자기 치유한다). 커밋본이 있으면 그
+    값으로 채워 그 거짓을 없앤다. 커밋본도 없으면(진짜 첫 생성) 빈 표로 둔다.
+
     **결과 칸만** 읽고 명령 칸은 버린다 (2026-10-01 독립 리뷰 [Low]).
     행을 통째로 복사하면 계약 명령이 바뀐 뒤에도 옛 문자열을 되살린다 —
     명령 칸은 `render` 가 현재 `VERIFICATION_COMMANDS` 로 재구성한다.
     """
     target = root / HANDOFF_REL
-    if not target.exists():
-        return {}
-    rows: dict[str, str] = {}
-    for line in target.read_text(encoding="utf-8").splitlines():
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) == 3 and _TABLE_ROW.match(line.strip()) and cells[2]:
-            rows[cells[0]] = cells[2]
-    return rows
-
-
-# 인용한 값이 **이전 실행**의 것임을 표에 박는다 (2026-10-01 독립 리뷰 [High]).
-# 표시가 없으면 "측정 시점 HEAD: <현재>" 아래에 더 오래된 통과 수가 지금
-# 측정한 것처럼 놓여 사람이 오독한다.
-CARRIED_PREFIX = "(이전 실행) "
+    if target.exists():
+        rows = _parse_rows(target.read_text(encoding="utf-8"))
+        if rows:
+            return rows
+    return _parse_rows(_git("show", f"HEAD:{HANDOFF_REL}", cwd=root))
 
 
 def render(root: pathlib.Path, run_verification: bool) -> str:
@@ -209,7 +243,7 @@ def render(root: pathlib.Path, run_verification: bool) -> str:
             lines.append(f"| {label} | `{command}` | {CARRIED_PREFIX}{carried[label]} |")
         else:
             # 이전 표가 없다(최초 생성). 빈 칸 — 숫자를 지어내지 않는다.
-            lines.append(f"| {label} | `{command}` | (이전 실측 없음) |")
+            lines.append(f"| {label} | `{command}` | {NO_PREVIOUS} |")
 
     lines += [
         "",
@@ -259,6 +293,13 @@ def write(root: pathlib.Path) -> int:
     거기서 실패하고, 2패스는 그대로 `exit=1 — 1 failed` 를 적는다. 즉시 돌린 실제
     baseline 은 `577 passed` 였다. 그래서 1패스는 `previous_rows()` 로 **이전 표를
     살려** 쓴다 — 유일한 차이는 다이제스트다.
+
+    ⚠ 남은 한계 (2026-10-01 독립 리뷰 [Low]): 2패스가 **예외로 죽으면** 디스크에는
+    1패스 산출물(새 다이제스트 + 이전 실측값)이 남고, `--check` 는 다이제스트만
+    보므로 그것을 "최신"으로 통과시킨다. 값이 캐리 표시(`(이전 실행)`)를 달고
+    있으니 오독 위험은 낮지만, 이 실패 모드는 없는 게 아니다 — 원자적 rename 이
+    더 낫다는 지적을 받았다. 지금은 그대로 둔다(2패스가 예외를 삼키지 않아
+    사용자가 실패를 본다).
     """
     target = root / HANDOFF_REL
     target.parent.mkdir(parents=True, exist_ok=True)

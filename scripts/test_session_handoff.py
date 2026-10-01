@@ -145,9 +145,10 @@ def test_measurement_free_pass_still_satisfies_the_document_contract(tmp_path):
     돌리면 `test_handoff_quotes_actual_command_results` 가 그 자리에서 실패하고,
     그 실패가 문서에 `exit=1` 로 기록된다. 다음 `write` 는 또 같은 자리에서 실패한다.
 
-1패스의 본문은 최종 문서와 **같아야 한다**(다이제스트만 갱신되는 것).
-    그래서 1패스도 이전 실측 표를 살려 실측 수치를 남겨야 하고,
-    그러면 2패스 실측 중 pytest 는 자기참조에서 실패하지 않는다.
+1패스의 본문은 최종 문서와 **다이제스트·실측 표 계약을 모두 만족**해야 한다
+(2026-10-01 독립 리뷰 [Low] 로 문구 정정 — `CARRIED_PREFIX` 와 실측값 차이 때문에
+1패스와 2패스 본문은 같지 않다). 그래서 1패스도 이전 실측 표를 살려 실측 수치를
+남겨야 하고, 그러면 2패스 실측 중 pytest 는 자기참조에서 실패하지 않는다.
 
     ⚠ `tmp_path` 에 이전 문서를 직접 만들어 준다 (2026-10-01 독립 리뷰 [High]).
     실제 `REPO` 문서를 읽으면 이 테스트가 **디스크 상태**를 재는 것이라
@@ -243,13 +244,91 @@ def test_generated_handoff_does_not_designate_a_competing_ssot(tmp_path):
     assert section, "생성된 핸드오프에 '남은 것 / 다음 세션' 절이 없다"
     tail = section.group(1)
 
-    assert not re.search(r"\.context\b|context/STATE", tail), (
+    assert not re.search(r"\.context\b|context/STATE|docs/CONTEXT", tail, re.I), (
         "다음 세션 절이 구 경로(`.context`)를 가리킨다 — gitignore 된 비정본으로 "
         "다음 세션을 보내면 경쟁 정본이 생긴다 (ADR-001)"
     )
     assert re.search(r"\.harness/state\.json", tail), (
         "다음 세션 절이 세션 문맥의 정본(`.harness/state.json`)을 가리키지 않는다 — "
         "문서 헤더의 같은 문자열로는 이 단언을 만족할 수 없다"
+    )
+
+
+def test_previous_rows_survives_a_pipe_in_the_result_cell(tmp_path):
+    """결과 칸에 `|` 가 있어도 그 행을 버리지 않는다 (2026-10-01 독립 리뷰 [Low]).
+
+    결과 칸은 `_stable(tail)` = 임의의 명령 출력이라 `continuity_check` 위반
+    메시지처럼 `|` 를 담을 수 있다. 예전 파서는 `len(cells) == 3` 을 요구해
+    그런 행을 조용히 탈락시켰고, 하필 baseline 이면 다음 1패스가 빈 표가 되어
+    거짓 exit=1 이 한 번 기록된다.
+    """
+    root = tmp_path / "repo"
+    (root / "docs").mkdir(parents=True)
+    (root / "docs/session-handoff.md").write_text(
+        '| baseline | `python -m pytest -q -k "not e2e"` | exit=0 ✅ — a | b passed |\n',
+        encoding="utf-8")
+
+    rows = sh.previous_rows(root)
+    assert "baseline" in rows, "파이프가 든 결과 칸 때문에 행이 탈락했다"
+    assert "a | b passed" in rows["baseline"], rows["baseline"]
+
+
+def test_previous_rows_strips_the_carried_prefix(tmp_path):
+    """캐리 표시를 벗겨 **멱등**하게 만든다 (2026-10-01 독립 리뷰 [Low]).
+
+    1패스가 붙인 `(이전 실행) ` 를 다시 읽을 때 그대로 두면 재실행마다 접두가
+    중첩된다 — 1패스 변환이 멱등이 아니게 된다.
+    """
+    root = tmp_path / "repo"
+    (root / "docs").mkdir(parents=True)
+    (root / "docs/session-handoff.md").write_text(
+        "| baseline | `x` | " + sh.CARRIED_PREFIX + "exit=0 ✅ — 5 passed |\n",
+        encoding="utf-8")
+
+    rows = sh.previous_rows(root)
+    assert not rows["baseline"].startswith(sh.CARRIED_PREFIX), (
+        f"접두가 남았다: {rows['baseline']!r} — 다시 캐리하면 중첩된다"
+    )
+    assert rows["baseline"] == "exit=0 ✅ — 5 passed"
+
+
+def test_carry_labels_track_the_command_list():
+    """`_TABLE_ROW` 의 라벨이 `VERIFICATION_COMMANDS` 에서 파생돼야 한다.
+
+    2026-10-01 독립 리뷰 [Low]: 라벨을 두 곳에 손으로 적어 두면 한쪽만 고쳤을 때
+    그 행이 조용히 캐리에서 빠진다 — baseline 이면 거짓 exit=1 로 이어진다.
+    """
+    for label, _ in sh.VERIFICATION_COMMANDS:
+        assert sh._TABLE_ROW.match(f"| {label} | `x` | y |"), (
+            f"'{label}' 이 _TABLE_ROW 에서 안 잡힌다 — 캐리에서 조용히 빠진다"
+        )
+
+
+def test_previous_rows_falls_back_to_the_committed_document(tmp_path, monkeypatch):
+    """디스크 표가 없으면 **커밋된** 문서에서 가져온다.
+
+    2026-10-01 독립 리뷰 [Medium] 후속 — 표가 손실된 상태로 `write` 하면 1패스가
+    빈 표가 되고 첫 실측이 거짓 exit=1 을 한 번 기록한다(실측 확인). 커밋본이
+    있으면 그 값을 써서 그 거짓을 없앤다.
+    """
+    root = tmp_path / "repo"
+    (root / "docs").mkdir(parents=True)
+    # 1패스가 표를 못 채웠을 때 디스크에 남는 모양 그대로 — **파싱은 되지만
+    # 측정값이 아닌** placeholder 행이다. 이걸 거르지 않으면 폴백이 안 걸린다.
+    (root / "docs/session-handoff.md").write_text(
+        f"| baseline | `x` | {sh.NO_PREVIOUS} |\n"
+        f"| 연속성 | `y` | {sh.NO_PREVIOUS} |\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        sh, "_git",
+        lambda *a, cwd=None: "| baseline | `x` | exit=0 ✅ — 42 passed |\n" if a[:2] == ("show", f"HEAD:{sh.HANDOFF_REL}") else "",
+    )
+
+    rows = sh.previous_rows(root)
+    assert rows.get("baseline") == "exit=0 ✅ — 42 passed", (
+        "커밋본 폴백이 작동하지 않는다 — placeholder 행이 측정값으로 취급돼 "
+        "폴백이 막히고 거짓 exit=1 이 기록된다"
     )
 
 

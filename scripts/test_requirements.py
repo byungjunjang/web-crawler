@@ -51,6 +51,18 @@ def _version_upper_bound(constraint: str) -> str | None:
     return match.group(1) if match else None
 
 
+def test_version_upper_bound_ignores_environment_markers():
+    """환경 마커의 `<` 를 버전 상한으로 오인하지 않는다 (2026-10-01 독립 리뷰 [Low]).
+
+    `python_version<"3.14"` 는 마커지 상한이 아니다. 이 경로를 실행하는 테스트가
+    없어서, 실수로 마커를 인용 없이(`python_version<3.14`) 쓰면 오인할 수 있었다.
+    마커는 늘 문자열 리터럴을 요구하므로 실제로는 무해하지만 못 박아 둔다.
+    """
+    assert _version_upper_bound('>=1.62,<1.64; python_version<"3.14"') == "1.64"
+    assert _version_upper_bound('>=1.62; python_version<"3.14"') is None
+    assert _version_upper_bound('>=1.62') is None
+
+
 def test_playwright_has_upper_bound():
     """상한은 1.64 가 나왔을 때 patchright 를 두고 독주하는 브레이크다(ADR-002).
 
