@@ -228,7 +228,8 @@ def render(root: pathlib.Path, run_verification: bool) -> str:
         "",
         f"- 활성 계약의 미해결 항목을 먼저 본다: `{work.get('contract_path', '?')}`",
         "- UNVERIFIED 로 남아 있는 것은 지어내지 말고 그대로 유지한다.",
-        "- `.context/STATE` 가 세션 중간에서 멈췄다면 갱신한다 — 그 파일은 세션 문맥의 SSOT 다.",
+        "- 세션 문맥의 정본은 `.harness/state.json` 하나다 — 중간에 멈췄다면 그 파일을 "
+        "갱신한다 (ADR-001). 정본 밖에 파생 사본을 두지 않는다 (AGENTS.md).",
         "",
         "## 다음 세션 즉시 시작",
         "",

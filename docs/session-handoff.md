@@ -21,7 +21,7 @@
 
 ## 실측 검증 (write 시점에 돌린 결과다)
 
-측정 시점 HEAD: `aa3c573` · 브랜치 `chore/plan-harness-v2`
+측정 시점 HEAD: `f8f2505` · 브랜치 `chore/plan-harness-v2`
 
 > ⚠ **출처**: 아래 결과는 이 문서를 커밋하기 **전의 작업 트리**에서 돌았다.
 > `write` 는 커밋 전에 불리므로 위 해시는 이 문서를 담는 커밋의 **부모**다.
@@ -31,7 +31,7 @@
 
 | 항목 | 명령 | 결과 |
 |---|---|---|
-| baseline | `python -m pytest -q -k "not e2e"` | exit=0 ✅ — 579 passed, 14 deselected |
+| baseline | `python -m pytest -q -k "not e2e"` | exit=0 ✅ — 580 passed, 14 deselected |
 | 연속성 | `python scripts/continuity_check.py` | exit=0 ✅ — 연속성 검사 통과 — 포인터와 실제 파일이 일치한다 |
 | 도메인 목록 | `python scripts/sync_domain_list.py --check` | exit=0 ✅ — [OK] 도메인 목록 최신 — 14개 |
 | Codex 미러 | `python scripts/sync_codex_mirror.py --check` | exit=0 ✅ — 출력 없음 |
@@ -39,6 +39,7 @@
 
 ## 이번 세션에 한 일
 
+- f8f2505 docs(contract): 상한 <1.64 가 아직 유효함을 pypi 로 재확인한다
 - aa3c573 docs(contract): ubuntu/x86_64 러너 통과를 실측해 UNVERIFIED 에서 닫는다
 - beb6e31 chore(harness): 세션 종료 — 상태를 닫고 핸드오프를 생성한다
 - 9e8384a feat(requirements): playwright·patchright 결합을 파일 제약으로 강제한다
@@ -50,13 +51,12 @@
 - d76c133 chore(plan): 계획 정본 하네스 v2 설치
 - 32ca3f2 wip: 계획 하네스 설치 전 사용자 변경 보존
 - dca2779 chore(harness): 세션 종료 — 핸드오프 생성기를 독립 리뷰 결과로 교정하고 상태를 닫는다
-- e725dc4 fix(harness): 다이제스트에서 HEAD 를 빼 고정점 불가 구조를 없앤다
 
 ## 남은 것 / 다음 세션
 
 - 활성 계약의 미해결 항목을 먼저 본다: `docs/task-contracts/PY311-001.md`
 - UNVERIFIED 로 남아 있는 것은 지어내지 말고 그대로 유지한다.
-- `.context/STATE` 가 세션 중간에서 멈췄다면 갱신한다 — 그 파일은 세션 문맥의 SSOT 다.
+- 세션 문맥의 정본은 `.harness/state.json` 하나다 — 중간에 멈췄다면 그 파일을 갱신한다 (ADR-001). 정본 밖에 파생 사본을 두지 않는다 (AGENTS.md).
 
 ## 다음 세션 즉시 시작
 

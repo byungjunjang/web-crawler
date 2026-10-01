@@ -217,6 +217,42 @@ def test_first_pass_labels_carried_rows_as_previous_run(tmp_path):
     )
 
 
+def test_generated_handoff_does_not_designate_a_competing_ssot(tmp_path):
+    """하네스가 옮긴 정본을 핸드오프가 다시 흩뜨리면 안 된다.
+
+    2026-10-01 실측: `session_handoff.py` 가 생성하는 "남은 것 / 다음 세션" 불릿이
+    "`.context/STATE` … 그 파일은 세션 문맥의 SSOT 다" 였다. 근거 3개가 모두 반대다 —
+    `.context/` 는 `.gitignore` 이고, `ADR-001` 결과는 "세션 재개는
+    `.harness/state.json` 한 파일만 읽으면 된다" 이며, `AGENTS.md` 는 "포인터 정본은
+    하나다. 파생 복사본을 두지 않는다" 다.
+
+    2026-10-01 독립 리뷰 [Medium] 반영: 처음엔 문서 **전체**에서
+    `.harness/state.json` 문자열을 찾았는데, 그건 이미 헤더에 있어서 수정 없이도
+    통과했다(강제력 0). 이제 그 절로 범위를 좁혀야 헤더가 단언을 대신 못 한다.
+    금지 문자열도 `.context/` 하나가 아니라 표기 변형까지 막는다 [Low].
+    """
+    root = tmp_path / "repo"
+    (root / ".harness").mkdir(parents=True)
+    (root / ".harness/state.json").write_text(
+        STATE.read_text(encoding="utf-8"), encoding="utf-8")
+    (root / ".harness/policy.json").write_text(
+        (REPO / ".harness/policy.json").read_text(encoding="utf-8"), encoding="utf-8")
+
+    text = sh.render(root, run_verification=False)
+    section = re.search(r"##\s*남은 것 / 다음 세션(.*?)(?=\n##\s|\Z)", text, re.S)
+    assert section, "생성된 핸드오프에 '남은 것 / 다음 세션' 절이 없다"
+    tail = section.group(1)
+
+    assert not re.search(r"\.context\b|context/STATE", tail), (
+        "다음 세션 절이 구 경로(`.context`)를 가리킨다 — gitignore 된 비정본으로 "
+        "다음 세션을 보내면 경쟁 정본이 생긴다 (ADR-001)"
+    )
+    assert re.search(r"\.harness/state\.json", tail), (
+        "다음 세션 절이 세션 문맥의 정본(`.harness/state.json`)을 가리키지 않는다 — "
+        "문서 헤더의 같은 문자열로는 이 단언을 만족할 수 없다"
+    )
+
+
 def test_write_renders_measurement_free_pass_first(tmp_path, monkeypatch):
     """`write` 는 실측 없는 패스를 **먼저** 한 번 돌려야 한다.
 
