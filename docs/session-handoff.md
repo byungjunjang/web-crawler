@@ -9,19 +9,19 @@
 
 다음 세션은 이 파일과 `.harness/state.json` 만 읽으면 된다. 이전 대화 이력은 근거가 아니다.
 
-- 입력 다이제스트: `f02df6fd954debb4b881c952e2e7d190bf00e9ec1ebcc8b9145e49ca9379c569`
+- 입력 다이제스트: `a3002508092ab8f07e854fca70704736e4f73fa63f73614d07eccd77b896e42b`
 
 ## 상태 한 줄 요약
 
 - 활성 작업: **PY311-001** — 계약 `docs/task-contracts/PY311-001.md`
 - NORTH STAR: URL과 수집 항목을 받아 사이트를 정찰·대량수집하고 엑셀로 내보내는 범용 웹 크롤링 에이전트 — 문서에 적힌 대로 따라 하면 죽지 않는다 (`GOAL-001`)
 - 단계: `POST_CHECK` / dirty=`False`
-- 검증 커밋: `f8e85ad`
+- 검증 커밋: `ef6eb3b`
 - 작업 도구: **opencode-go/deepseek-v4.1-flash**
 
 ## 실측 검증 (write 시점에 돌린 결과다)
 
-측정 시점 HEAD: `ab0f712` · 브랜치 `chore/plan-harness-v2`
+측정 시점 HEAD: `ef6eb3b` · 브랜치 `chore/plan-harness-v2`
 
 > ⚠ **출처**: 아래 결과는 이 문서를 커밋하기 **전의 작업 트리**에서 돌았다.
 > `write` 는 커밋 전에 불리므로 위 해시는 이 문서를 담는 커밋의 **부모**다.
@@ -39,6 +39,7 @@
 
 ## 이번 세션에 한 일
 
+- ef6eb3b fix(harness): 캐리 파서·부트스트랩 결함 9건을 독립 리뷰 후 닫는다
 - ab0f712 chore(harness): 세션 종료 — HARNESS-003 리뷰 기록을 반영한다
 - f8e85ad docs(harness): 진입 문서를 지도 역할로 줄이고 중복 절을 원문 이관한다 (HARNESS-003)
 - 9207374 chore(harness): 세션 종료 — HARNESS-002 리뷰 기록을 반영하고 상태를 갱신한다
@@ -50,7 +51,6 @@
 - 07dad93 fix(harness): write 가 거짓 exit=1 을 기록하는 순환을 닫는다
 - 73367de chore(plan): 하네스 CLI 갱신(제안 ADR 캡슐 표시, ADR 상태 표기 확대, 기준선 계획 폴더 새 문서 허용)
 - 92ce606 docs(agents): git push 정책 명시(기능 브랜치 push·PR은 사용자 상시 승인, main·force·병합·배포는 매번 승인)
-- be9a8ee chore(plan): 하네스 CLI 갱신(ADR 범위 표기 인정)
 
 ## 남은 것 / 다음 세션
 
