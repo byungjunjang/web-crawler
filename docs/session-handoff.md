@@ -9,19 +9,19 @@
 
 다음 세션은 이 파일과 `.harness/state.json` 만 읽으면 된다. 이전 대화 이력은 근거가 아니다.
 
-- 입력 다이제스트: `1378eecd7448d1c660df82952dd2c7ae40972b1013b4ea7d4e4078947456bd15`
+- 입력 다이제스트: `f02df6fd954debb4b881c952e2e7d190bf00e9ec1ebcc8b9145e49ca9379c569`
 
 ## 상태 한 줄 요약
 
 - 활성 작업: **PY311-001** — 계약 `docs/task-contracts/PY311-001.md`
 - NORTH STAR: URL과 수집 항목을 받아 사이트를 정찰·대량수집하고 엑셀로 내보내는 범용 웹 크롤링 에이전트 — 문서에 적힌 대로 따라 하면 죽지 않는다 (`GOAL-001`)
 - 단계: `POST_CHECK` / dirty=`False`
-- 검증 커밋: `986bfdf`
+- 검증 커밋: `f8e85ad`
 - 작업 도구: **opencode-go/deepseek-v4.1-flash**
 
 ## 실측 검증 (write 시점에 돌린 결과다)
 
-측정 시점 HEAD: `986bfdf` · 브랜치 `chore/plan-harness-v2`
+측정 시점 HEAD: `f8e85ad` · 브랜치 `chore/plan-harness-v2`
 
 > ⚠ **출처**: 아래 결과는 이 문서를 커밋하기 **전의 작업 트리**에서 돌았다.
 > `write` 는 커밋 전에 불리므로 위 해시는 이 문서를 담는 커밋의 **부모**다.
@@ -39,6 +39,8 @@
 
 ## 이번 세션에 한 일
 
+- f8e85ad docs(harness): 진입 문서를 지도 역할로 줄이고 중복 절을 원문 이관한다 (HARNESS-003)
+- 9207374 chore(harness): 세션 종료 — HARNESS-002 리뷰 기록을 반영하고 상태를 갱신한다
 - 986bfdf fix(harness): 핸드오프가 경쟁 정본(.context)을 지시하던 것을 정본으로 바로잡는다
 - f8f2505 docs(contract): 상한 <1.64 가 아직 유효함을 pypi 로 재확인한다
 - aa3c573 docs(contract): ubuntu/x86_64 러너 통과를 실측해 UNVERIFIED 에서 닫는다
@@ -49,8 +51,6 @@
 - 92ce606 docs(agents): git push 정책 명시(기능 브랜치 push·PR은 사용자 상시 승인, main·force·병합·배포는 매번 승인)
 - be9a8ee chore(plan): 하네스 CLI 갱신(ADR 범위 표기 인정)
 - d59108a chore(plan): 하네스 CLI 갱신(계획 편집 허용+승인 전 변경은 종료 게이트, ADR 번호 표기 인정)
-- d76c133 chore(plan): 계획 정본 하네스 v2 설치
-- 32ca3f2 wip: 계획 하네스 설치 전 사용자 변경 보존
 
 ## 남은 것 / 다음 세션
 

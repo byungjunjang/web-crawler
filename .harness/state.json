@@ -3,13 +3,13 @@
   "active_work_id": "PY311-001",
   "stage": "POST_CHECK",
   "dirty": false,
-  "verified_commit": "986bfdf",
+  "verified_commit": "f8e85ad",
   "session_end": {
     "independent_review": {
       "status": "passed",
       "model": "opencode-go/deepseek-v4.1-flash",
-      "findings_fixed": 11,
-      "note": "두 라운드 모두 CHANGES REQUESTED 를 받아 전부 수정하고 GREEN 확인했다 (누적 11건). 라운드 1 (session_handoff write 거짓 exit=1 순환, 6건 H3/M1/L2): render 의 '순수 함수' 선언 정정, 디스크 상태를 재던 테스트를 tmp_path 기반 로직 검증으로 교체, 인용 행에 '(이전 실행)' 출처 표시(CARRIED_PREFIX), 계약에 HARNESS-001 절 명시, 캐리 행은 결과 칸만 인용, _constraint KeyError 제거. 라운드 2 (핸드오프가 경쟁 정본 .context 를 SSOT 로 지시, 5건 M2/L3): 테스트를 문서 전체가 아니라 '남은 것 / 다음 세션' 절로 좁혀 헤더가 단언을 대신하지 못하게 함, 계약에 HARNESS-002 절 명시, 금지 패턴을 정규식으로 확대, ADR-001/AGENTS.md 인용 분리, docstring 행번호 제거. 리뷰어는 python 실행이 차단된 환경이라 실행 항목을 UNVERIFIED 로 표시했고, 그 항목(RED 재현·변이 강제력·write 3회 멱등성·sha256 핀 대조·재측정)은 메인이 직접 실측했다 — 상세는 docs/task-contracts/PY311-001.md 의 두 '독립 리뷰 반영' 절."
+      "findings_fixed": 13,
+      "note": "세 라운드 모두 CHANGES REQUESTED 를 받아 전부 수정하고 GREEN 확인했다 (누적 13건). 라운드 1 (session_handoff write 거짓 exit=1 순환, 6건): 아래 상세. 라운드 2 (핸드오프가 경쟁 정본 .context 를 SSOT 로 지시, 5건): 테스트를 절 단위로 좁히고, 계약에 HARNESS-002 절 명시, 금지 패턴 정규식 확대, 인용 분리, 행번호 제거. 라운드 3 (진입 문서 이관 HARNESS-003, 2건 — 둘 다 계약 기록의 사실 오류): (1) docs/agents-reference.md 크기를 60줄·7892B 로 적었으나 실제 90줄·9199B, (2) '나머지 264줄은 테스트가 절 단위 고정' 이 과장 — 실측하면 안전·통지 게이트 계열만 고정이고 여덟 절(도구 역할 분리·Infinite Scroll·수집 코드 생성·Rate Limiting·사용자 상호작용·출력/저장·쿠키 전달·스킬 참조)은 미고정. '이번 범위가 중복분 이관이라 안 옮겼다'로 정정. 라운드 1 의 render 순수성/자기참조 테스트/HARNESS-001 계약 편입은 docs/task-contracts/PY311-001.md 의 해당 절 참조. 리뷰어는 세 라운드 모두 python 실행이 차단된 환경이라 실행 항목을 UNVERIFIED 로 표시했고, 그 항목(Red 재현·변이 강제력·멱등성·핀 대조·byte 동일 대조·재측정)은 메인이 직접 실측했다."
     }
   }
 }
