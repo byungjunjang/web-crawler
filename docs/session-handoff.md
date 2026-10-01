@@ -9,19 +9,19 @@
 
 다음 세션은 이 파일과 `.harness/state.json` 만 읽으면 된다. 이전 대화 이력은 근거가 아니다.
 
-- 입력 다이제스트: `1d157b9af98abdd7346a6d3211f8627bbf9261f71efecb83315186b724a5b354`
+- 입력 다이제스트: `1378eecd7448d1c660df82952dd2c7ae40972b1013b4ea7d4e4078947456bd15`
 
 ## 상태 한 줄 요약
 
 - 활성 작업: **PY311-001** — 계약 `docs/task-contracts/PY311-001.md`
 - NORTH STAR: URL과 수집 항목을 받아 사이트를 정찰·대량수집하고 엑셀로 내보내는 범용 웹 크롤링 에이전트 — 문서에 적힌 대로 따라 하면 죽지 않는다 (`GOAL-001`)
 - 단계: `POST_CHECK` / dirty=`False`
-- 검증 커밋: `9e8384a`
+- 검증 커밋: `986bfdf`
 - 작업 도구: **opencode-go/deepseek-v4.1-flash**
 
 ## 실측 검증 (write 시점에 돌린 결과다)
 
-측정 시점 HEAD: `f8f2505` · 브랜치 `chore/plan-harness-v2`
+측정 시점 HEAD: `986bfdf` · 브랜치 `chore/plan-harness-v2`
 
 > ⚠ **출처**: 아래 결과는 이 문서를 커밋하기 **전의 작업 트리**에서 돌았다.
 > `write` 는 커밋 전에 불리므로 위 해시는 이 문서를 담는 커밋의 **부모**다.
@@ -39,6 +39,7 @@
 
 ## 이번 세션에 한 일
 
+- 986bfdf fix(harness): 핸드오프가 경쟁 정본(.context)을 지시하던 것을 정본으로 바로잡는다
 - f8f2505 docs(contract): 상한 <1.64 가 아직 유효함을 pypi 로 재확인한다
 - aa3c573 docs(contract): ubuntu/x86_64 러너 통과를 실측해 UNVERIFIED 에서 닫는다
 - beb6e31 chore(harness): 세션 종료 — 상태를 닫고 핸드오프를 생성한다
@@ -50,7 +51,6 @@
 - d59108a chore(plan): 하네스 CLI 갱신(계획 편집 허용+승인 전 변경은 종료 게이트, ADR 번호 표기 인정)
 - d76c133 chore(plan): 계획 정본 하네스 v2 설치
 - 32ca3f2 wip: 계획 하네스 설치 전 사용자 변경 보존
-- dca2779 chore(harness): 세션 종료 — 핸드오프 생성기를 독립 리뷰 결과로 교정하고 상태를 닫는다
 
 ## 남은 것 / 다음 세션
 

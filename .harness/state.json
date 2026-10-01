@@ -3,13 +3,13 @@
   "active_work_id": "PY311-001",
   "stage": "POST_CHECK",
   "dirty": false,
-  "verified_commit": "9e8384a",
+  "verified_commit": "986bfdf",
   "session_end": {
     "independent_review": {
       "status": "passed",
       "model": "opencode-go/deepseek-v4.1-flash",
-      "findings_fixed": 6,
-      "note": "CHANGES REQUESTED 로 받은 6건(H3/L3) 전부 수정했고 각각 GREEN 확인했다. [High] 3건 — (1) render docstring 의 '순수 함수' 선언이 1패스에서 거짓이라 정정, (2) 신규 테스트가 실제 REPO 문서를 읽어 디스크 상태를 판정하던 것을 tmp_path 기반 로직 검증으로 교체, (3) 인용 행에 '(이전 실행)' 출처 표시가 없던 것을 CARRIED_PREFIX 로 도입. [Medium] 1건 — 계약 밖 변경이라 PY311-001 계약에 '범위 밖에서 발견·고친 결함' 절로 명시. [Low] 2건 — 캐리 행이 옛 명령 문자열까지 되살리던 것을 결과 칸만 인용으로 변경, _constraint 의 KeyError 를 .get() 으로 교체. 리뷰어는 python 실행이 차단된 환경이라 실행 항목을 전부 UNVERIFIED 로 표시했고, 그 항목(신규 테스트 RED 재현·write 3회 멱등성·sha256 핀 대조·통과 수 재측정)은 메인이 직접 실행해 확인했다 — 상세는 docs/task-contracts/PY311-001.md 의 같은 절."
+      "findings_fixed": 11,
+      "note": "두 라운드 모두 CHANGES REQUESTED 를 받아 전부 수정하고 GREEN 확인했다 (누적 11건). 라운드 1 (session_handoff write 거짓 exit=1 순환, 6건 H3/M1/L2): render 의 '순수 함수' 선언 정정, 디스크 상태를 재던 테스트를 tmp_path 기반 로직 검증으로 교체, 인용 행에 '(이전 실행)' 출처 표시(CARRIED_PREFIX), 계약에 HARNESS-001 절 명시, 캐리 행은 결과 칸만 인용, _constraint KeyError 제거. 라운드 2 (핸드오프가 경쟁 정본 .context 를 SSOT 로 지시, 5건 M2/L3): 테스트를 문서 전체가 아니라 '남은 것 / 다음 세션' 절로 좁혀 헤더가 단언을 대신하지 못하게 함, 계약에 HARNESS-002 절 명시, 금지 패턴을 정규식으로 확대, ADR-001/AGENTS.md 인용 분리, docstring 행번호 제거. 리뷰어는 python 실행이 차단된 환경이라 실행 항목을 UNVERIFIED 로 표시했고, 그 항목(RED 재현·변이 강제력·write 3회 멱등성·sha256 핀 대조·재측정)은 메인이 직접 실측했다 — 상세는 docs/task-contracts/PY311-001.md 의 두 '독립 리뷰 반영' 절."
     }
   }
 }
