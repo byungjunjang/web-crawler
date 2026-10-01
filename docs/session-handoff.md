@@ -21,7 +21,7 @@
 
 ## 실측 검증 (write 시점에 돌린 결과다)
 
-측정 시점 HEAD: `9e8384a` · 브랜치 `chore/plan-harness-v2`
+측정 시점 HEAD: `beb6e31` · 브랜치 `chore/plan-harness-v2`
 
 > ⚠ **출처**: 아래 결과는 이 문서를 커밋하기 **전의 작업 트리**에서 돌았다.
 > `write` 는 커밋 전에 불리므로 위 해시는 이 문서를 담는 커밋의 **부모**다.
@@ -39,6 +39,7 @@
 
 ## 이번 세션에 한 일
 
+- beb6e31 chore(harness): 세션 종료 — 상태를 닫고 핸드오프를 생성한다
 - 9e8384a feat(requirements): playwright·patchright 결합을 파일 제약으로 강제한다
 - 07dad93 fix(harness): write 가 거짓 exit=1 을 기록하는 순환을 닫는다
 - 73367de chore(plan): 하네스 CLI 갱신(제안 ADR 캡슐 표시, ADR 상태 표기 확대, 기준선 계획 폴더 새 문서 허용)
@@ -50,7 +51,6 @@
 - dca2779 chore(harness): 세션 종료 — 핸드오프 생성기를 독립 리뷰 결과로 교정하고 상태를 닫는다
 - e725dc4 fix(harness): 다이제스트에서 HEAD 를 빼 고정점 불가 구조를 없앤다
 - c9bdd14 chore(harness): 커밋으로 HEAD 가 바뀌어 생성이 먼저 필요하므로 핸드오프 재생성
-- 9a4e116 feat(harness): 세션 종료 시 핸드오프 문서를 생성하는 하네스를 이식한다
 
 ## 남은 것 / 다음 세션
 
