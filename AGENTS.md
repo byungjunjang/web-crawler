@@ -72,7 +72,8 @@ python scripts/session_handoff.py --check
 수행할 때 그 문서를 본다. 판정 기준과 안전 하드룰은 이 파일에 그대로 있다.
 
 - 셋업 · 정찰 · 수집 절차 전문 → [`docs/agents-reference.md`](docs/agents-reference.md)
-- 프로젝트 규칙·도구 분리 SSOT → [`CLAUDE.md`](CLAUDE.md)
+- 크롤링 운영 상세(도구 역할 분리·Fetcher 트리·안전/통지 규칙 등) → [`docs/crawl-reference.md`](docs/crawl-reference.md)
+- 진입 지도·프로젝트 개요 → [`CLAUDE.md`](CLAUDE.md)
 - 워크플로우 전체 → [`.codex/skills/web-crawler/SKILL.md`](.codex/skills/web-crawler/SKILL.md)
 
 ## 스킬 소스 (생성 미러)
@@ -107,7 +108,8 @@ python scripts/session_handoff.py --check
 | Fetcher 코드 템플릿 | `.codex/skills/web-crawler/references/fetcher-patterns.md` |
 | 안티봇(Akamai/Cloudflare/SPA 세션) | `.codex/skills/web-crawler/references/antibot-strategies.md` |
 | 수집 실패 진단 | `.codex/skills/web-crawler/references/troubleshooting.md` |
-| 프로젝트 규칙·도구 분리 SSOT | `CLAUDE.md` |
+| 크롤링 운영 상세(도구 역할 분리·Fetcher 트리) | `docs/crawl-reference.md` |
+| 프로젝트 진입 지도 | `CLAUDE.md` |
 | 계획 연속성 검사기 | `python scripts/continuity_check.py` |
 
 ## 계획 연속성

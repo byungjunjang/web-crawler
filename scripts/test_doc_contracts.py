@@ -24,8 +24,11 @@ import pytest
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
 # 실행 계약을 담은 문서. .codex 는 .claude 의 생성물이라 원본만 본다.
+# docs/crawl-reference.md 는 2026-10-02 에 CLAUDE.md 에서 옮겨온 프로필 저장/쿠키 python
+# 블록을 담고 있다 — 목록에서 빼면 그 블록들이 드리프트 검사 사각지대로 떨어진다.
 DOC_FILES = [
     REPO / "CLAUDE.md",
+    REPO / "docs/crawl-reference.md",
     REPO / "AGENTS.md",
     REPO / "README.md",
     REPO / ".claude/skills/web-crawler/SKILL.md",

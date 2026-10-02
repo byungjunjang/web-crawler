@@ -32,6 +32,9 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 # 정본 문서 (Step 5-A 게이트가 있는 곳). .codex 는 생성 미러이므로 보지 않는다.
 SKILL_MD = REPO / ".claude/skills/web-crawler/SKILL.md"
 CLAUDE_MD = REPO / "CLAUDE.md"
+# 2026-10-02 — CLAUDE.md 의 프로필 스키마 열거·notes 템플릿은 docs/crawl-reference.md 로
+# 옮겼다. 정본 열거 소스에 이 문서를 넣지 않으면 옮긴 블록이 갱신돼도 검사가 못 본다.
+CRAWL_REF = REPO / "docs/crawl-reference.md"
 AGENTS_MD = REPO / "AGENTS.md"
 DOMAIN_PROFILE_PY = REPO / "scripts/domain_profile.py"
 FINGERPRINTS = REPO / "fingerprints"
@@ -74,9 +77,9 @@ def _docstring_enums() -> dict[str, set[str]]:
 
 
 def _authoritative_enums() -> dict[str, set[str]]:
-    """CLAUDE.md + SKILL.md 가 제시하는 열거 (합집합)."""
+    """SKILL.md + crawl-reference.md 가 제시하는 열거 (합집합)."""
     out: dict[str, set[str]] = {}
-    for path in (SKILL_MD, CLAUDE_MD):
+    for path in (SKILL_MD, CRAWL_REF):
         for field, body in _ENUM_LINE.findall(path.read_text(encoding="utf-8")):
             out.setdefault(field, set()).update(_split(body))
     return out
@@ -278,7 +281,7 @@ def test_committed_profile_api_endpoints_follow_schema(name, profile):
 def _doc_notes_template_lines() -> list[tuple[str, str]]:
     """(문서, `"notes":` 템플릿 줄) 목록."""
     out = []
-    for path in (CLAUDE_MD, SKILL_MD):
+    for path in (CLAUDE_MD, CRAWL_REF, SKILL_MD):
         for line in path.read_text(encoding="utf-8").splitlines():
             if '"notes"' in line and ":" in line and "<" in line:
                 out.append((path.name, line.strip()))

@@ -61,6 +61,13 @@ docs/*
 # 에이전트 상세 참조 — AGENTS.md·CLAUDE.md 가 링크한다. 무시되면 clean clone 에서
 # 그 링크가 끊긴다(2026-10-01 HARNESS-003).
 !docs/agents-reference.md
+# 제품 레퍼런스 — 경쟁/인접 도구 대조 기록(2026-10-02). 무시되면 조사 근거가 사라진다.
+!docs/reference/
+docs/reference/*
+!docs/reference/getdesign-ai-comparison.md
+# 크롤링 운영 상세 — CLAUDE.md 에서 원문 이관한 안전·통지·Fetcher 트리 등(2026-10-02).
+# 무시되면 CLAUDE.md 의 링크가 끊기고 옮긴 규칙이 clean clone 에서 사라진다.
+!docs/crawl-reference.md
 !docs/decisions/
 docs/decisions/*
 !docs/decisions/ADR-001-harness-lean-install.md

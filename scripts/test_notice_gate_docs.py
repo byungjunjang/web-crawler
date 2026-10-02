@@ -11,6 +11,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILL = REPO_ROOT / ".claude/skills/web-crawler/SKILL.md"
 CLAUDE_MD = REPO_ROOT / "CLAUDE.md"
+CRAWL_REF = REPO_ROOT / "docs/crawl-reference.md"
 ANTIBOT = REPO_ROOT / ".claude/skills/web-crawler/references/antibot-strategies.md"
 README = REPO_ROOT / "README.md"
 ACCEPTABLE_USE = REPO_ROOT / "ACCEPTABLE_USE.md"
@@ -19,7 +20,10 @@ AGENTS_MD = REPO_ROOT / "AGENTS.md"
 # AGENTS.md 는 Codex 가 실제로 실행하는 계약 문서인데 한동안 어느 드리프트 테스트에도 없었다.
 # 그 결과 브랜치 내내 네 번의 문서 정리를 전부 비껴가, 이미 고쳐진 규칙의 옛 판본이 여기서만
 # 살아남았다(자동 우회 금지 문구, ToS 위반 = 거절). 지시 문서는 전부 같은 검사를 받는다.
-GATE_DOCS = [SKILL, CLAUDE_MD, ANTIBOT, AGENTS_MD]
+#
+# CRAWL_REF 는 2026-10-02 에 CLAUDE.md 를 200줄 미만으로 줄이면서 안전·통지 규칙을
+# 원문 그대로 옮긴 곳이다. 규칙의 1차 노출 위치가 CLAUDE.md 에서 이 문서로 이동했다.
+GATE_DOCS = [SKILL, CLAUDE_MD, CRAWL_REF, ANTIBOT, AGENTS_MD]
 
 
 @pytest.mark.parametrize("path", GATE_DOCS, ids=lambda p: p.name)
@@ -56,8 +60,12 @@ def test_docs_do_not_overclaim_a_ban(path):
 
 
 def test_captcha_rule_is_layered_with_waf():
-    """G2 — CAPTCHA 와 WAF 가 같은 층위여야 한다. 자동 풀이 금지는 별개로 유지."""
-    text = CLAUDE_MD.read_text(encoding="utf-8")
+    """G2 — CAPTCHA 와 WAF 가 같은 층위여야 한다. 자동 풀이 금지는 별개로 유지.
+
+    2026-10-02 — 안전 규칙 절이 `docs/crawl-reference.md` 로 옮겨졌다. 이 문구의 1차
+    노출 위치도 그 문서다(CLAUDE.md 는 요약과 링크만 둔다).
+    """
+    text = CRAWL_REF.read_text(encoding="utf-8")
     assert "CAPTCHA 자동 풀이 금지" in text
     assert "CAPTCHA·WAF·봇 탐지는 법적으로 같은 보호조치" in text
 
@@ -86,18 +94,24 @@ def _section(path: Path, start_heading: str, end_heading: str) -> str:
 
 
 def _absolute_rule_zero_block() -> str:
-    """CLAUDE.md 의 '★ 절대 규칙 0' 절만 잘라 반환 (다음 '##' 절 직전까지)."""
+    """`docs/crawl-reference.md` 의 '★ 절대 규칙 0' 절만 잘라 반환 (다음 '##' 절 직전까지).
+
+    2026-10-02 — 이 절은 CLAUDE.md 에서 crawl-reference.md 로 원문 그대로 옮겼다.
+    """
     return _section(
-        CLAUDE_MD,
+        CRAWL_REF,
         "## ★ 절대 규칙 0: 도메인 히스토리 우선 (모든 수집의 시작)",
         "## 범위 / 운영 안전 규칙",
     )
 
 
 def _fetcher_decision_tree_section() -> str:
-    """CLAUDE.md 의 'Fetcher 선택 의사결정 트리' 절만 잘라 반환 (다음 '##' 절 직전까지)."""
+    """`docs/crawl-reference.md` 의 'Fetcher 선택 의사결정 트리' 절 (다음 '##' 절 직전까지).
+
+    2026-10-02 — 이 절은 CLAUDE.md 에서 crawl-reference.md 로 원문 그대로 옮겼다.
+    """
     return _section(
-        CLAUDE_MD,
+        CRAWL_REF,
         "## Fetcher 선택 의사결정 트리",
         "## Spider 활용 기준",
     )
@@ -244,8 +258,8 @@ SAFETY_RULE_SECTIONS = [
         "진행 여부는 사용자가 정합니다", id="README.md",
     ),
     pytest.param(
-        CLAUDE_MD, "## 범위 / 운영 안전 규칙", "## 핵심 도구",
-        "진행 여부는 사용자가 정한다", id="CLAUDE.md",
+        CRAWL_REF, "## 범위 / 운영 안전 규칙", "## 핵심 도구",
+        "진행 여부는 사용자가 정한다", id="docs/crawl-reference.md",
     ),
     pytest.param(
         AGENTS_MD, "## 안전 — 하드룰 (위반 금지)", "## 빠른 참조",
@@ -359,9 +373,9 @@ FREQUENCY_CLAIM_SECTIONS = [
         id="README.md",
     ),
     pytest.param(
-        CLAUDE_MD, "## ★ 절대 규칙 0: 도메인 히스토리 우선 (모든 수집의 시작)", "## 범위 / 운영 안전 규칙",
+        CRAWL_REF, "## ★ 절대 규칙 0: 도메인 히스토리 우선 (모든 수집의 시작)", "## 범위 / 운영 안전 규칙",
         "통지는 도메인당 1회가 아니라 이음매를 통과할 때마다 1회다",
-        id="CLAUDE.md",
+        id="docs/crawl-reference.md",
     ),
     pytest.param(
         AGENTS_MD, "## 안전 — 하드룰 (위반 금지)", "## 빠른 참조",
