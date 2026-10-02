@@ -3,13 +3,13 @@
   "active_work_id": "PY311-001",
   "stage": "POST_CHECK",
   "dirty": false,
-  "verified_commit": "ef6eb3b",
+  "verified_commit": "e2c91d5",
   "session_end": {
     "independent_review": {
       "status": "passed",
       "model": "opencode-go/deepseek-v4.1-flash",
-      "findings_fixed": 22,
-      "note": "네 라운드 모두 CHANGES REQUESTED 를 받아 finding 을 전부 수정하고 GREEN 확인했다 (누적 22건, 모델 opencode-go/deepseek-v4.1-flash ≡ 작업 모델). 라운드 1 (session_handoff write 거짓 exit=1 순환, 6건). 라운드 2 (핸드오프가 경쟁 정본 .context 를 SSOT 로 지시, 5건). 라운드 3 (진입 문서 이관 HARNESS-003 계약 기록 사실오류 2건). 라운드 4 (브랜치 코드 전체, 9건 — F1 부트스트랩 캐리 거짓 기록[Medium], F2 결과칸 파이프, F3 캐리 접두 중첩, F4 _TABLE_ROW 이중정의, F6 왕복 테스트, F7 마커 단위테스트, F8 패턴 확대, F9 docstring, F5 2패스 실패모드 명시). 리뷰가 틀린 주장도 실측으로 반증했다 — F1 '영구 래치'는 사실이 아니었고(2회째 자기 치유), F1 첫 수정이 작동하지 않은 것도 실측으로 잡아 placeholder 필터로 고쳤다. 리뷰어는 네 라운드 모두 python 실행이 차단돼 실행 항목을 UNVERIFIED 로 표시했고, RED/변이/멱등성/byte 대조/재측정은 메인이 직접 실측했다. 상세는 docs/task-contracts/PY311-001.md 의 각 라운드 절."
+      "findings_fixed": 28,
+      "note": "다섯 라운드 모두 CHANGES REQUESTED/PASS 판정을 받아 finding 을 전부 수정하고 GREEN 확인했다 (누적 28건; 라운드 5 는 판정 PASS + Low/nit 6건 반영). 라운드 1 session_handoff write 거짓 exit=1 순환(6). 라운드 2 핸드오프가 경쟁 정본 .context 를 SSOT 로 지시(5). 라운드 3 진입 문서 이관 HARNESS-003 계약 기록 사실오류(2). 라운드 4 브랜치 코드 전체 캐리 파서·부트스트랩(9). 라운드 5 라운드4 수정분 재검 — PASS, Low/nit 6건 반영(정규식 파생 단언, unquoted 마커, 접두-선행 제거, 라벨 단위 폴백, docstring). 수정 과정에서 새 결함 2건을 메인이 실측으로 잡았다 — CARRIED_PREFIX 후행공백으로 removeprefix 실패, pytest basetemp 가 저장소 안이라 tmp 테스트가 실저장소 커밋본을 읽음(autouse fixture 로 격리). 리뷰어는 전 라운드 python 실행이 차단돼 실행 항목을 UNVERIFIED 로 표시했고, RED/변이/멱등성/byte 대조/손실 재현은 메인이 직접 실측했다. 상세는 docs/task-contracts/PY311-001.md 의 각 라운드 절."
     }
   }
 }
