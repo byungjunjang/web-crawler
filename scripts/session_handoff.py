@@ -112,7 +112,11 @@ _TABLE_ROW = re.compile(
 # 인용한 값이 **이전 실행**의 것임을 표에 박는다 (2026-10-01 독립 리뷰 [High]).
 # 표시가 없으면 "측정 시점 HEAD: <현재>" 아래에 더 오래된 통과 수가 지금
 # 측정한 것처럼 놓여 사람이 오독한다.
-CARRIED_PREFIX = "(이전 실행) "
+#
+# ⚠ **후행 공백을 넣지 않는다.** 셀 파싱이 양끝 공백을 먼저 벗겨내므로
+# `"(이전 실행) "` 로 두면 `removeprefix` 가 실패한다(2026-10-01 실측).
+# 공백은 render 가 값 앞에 붙인다.
+CARRIED_PREFIX = "(이전 실행)"
 
 # 이전 표가 없을 때의 빈 칸. **측정값이 아니다** — `_parse_rows` 가 이걸 거르지
 # 않으면 커밋본 폴백이 안 걸려 거짓 exit=1 이 한 번 기록된다 (2026-10-01 실측).
@@ -122,9 +126,9 @@ NO_PREVIOUS = "(이전 실측 없음)"
 def _parse_rows(text: str) -> dict[str, str]:
     """마크다운 표에서 `라벨 → 결과` 만 뽑는다. 결과 칸은 **마지막부터** 모은다.
 
-    결과 칸은 임의의 명령 출력(`_stable`)이라 `|` 를 담을 수 있다 —
-    `continuity_check` 위반 메시지가 `|` 를 포함한다. 예전 파서는 열 수를 3으로
-    고정해 그런 행을 조용히 탈락시켰다 (2026-10-01 독립 리뷰 [Low]).
+    결과 칸은 임의의 명령 출력(`_stable`)이라 `|` 를 담을 수 있다(예: diff·표가
+    섞인 stderr). 예전 파서는 열 수를 3으로 고정해 그런 행을 조용히 탈락시켰다
+    (2026-10-01 독립 리뷰 [Low]).
     캐리 접두는 벗겨 멱등하게 만든다 — 안 벗기면 재실행마다 중첩된다.
     """
     rows: dict[str, str] = {}
@@ -135,11 +139,15 @@ def _parse_rows(text: str) -> dict[str, str]:
         cells = [c.strip() for c in stripped.strip("|").split("|")]
         if len(cells) < 3:
             continue
-        result = " | ".join(cells[2:]).strip()
+        raw = " | ".join(cells[2:]).strip()
+        # 접두를 **먼저** 벗긴 뒤 빈 값을 판정한다. 순서를 뒤집으면 접두만 있는
+        # 행이 빈 문자열로 저장돼 render 가 `(이전 실행) ` 만 출력한다
+        # (2026-10-01 독립 리뷰 [Low]).
+        value = raw.removeprefix(CARRIED_PREFIX).strip()
         # 빈 칸(측정 없음)은 측정값이 아니다 — 거르지 않으면 커밋본 폴백이
         # 안 걸려 거짓 exit=1 이 기록된다.
-        if result and result != NO_PREVIOUS:
-            rows[cells[0]] = result.removeprefix(CARRIED_PREFIX)
+        if value and value != NO_PREVIOUS:
+            rows[cells[0]] = value
     return rows
 
 
@@ -162,12 +170,15 @@ def previous_rows(root: pathlib.Path) -> dict[str, str]:
     행을 통째로 복사하면 계약 명령이 바뀐 뒤에도 옛 문자열을 되살린다 —
     명령 칸은 `render` 가 현재 `VERIFICATION_COMMANDS` 로 재구성한다.
     """
+    # 디스크(최신)를 커밋본 위에 **라벨 단위로** 덮는다. 전체가 비었을 때만
+    # 폴백하면 "baseline 행만 손실" 같은 부분 손실에서 그 라벨이 빠져 2패스가
+    # 거짓 exit=1 을 한 번 기록한다 (2026-10-01 독립 리뷰 [Low]).
     target = root / HANDOFF_REL
-    if target.exists():
-        rows = _parse_rows(target.read_text(encoding="utf-8"))
-        if rows:
-            return rows
-    return _parse_rows(_git("show", f"HEAD:{HANDOFF_REL}", cwd=root))
+    disk = _parse_rows(target.read_text(encoding="utf-8")) if target.exists() else {}
+    committed = _parse_rows(_git("show", f"HEAD:{HANDOFF_REL}", cwd=root))
+    merged = dict(committed)
+    merged.update(disk)
+    return merged
 
 
 def render(root: pathlib.Path, run_verification: bool) -> str:
@@ -240,7 +251,7 @@ def render(root: pathlib.Path, run_verification: bool) -> str:
         elif label in carried:
             # 이전 문서의 **결과 칸**을 인용한다. 명령 칸은 현재 값으로 재구성하고
             # 출처 표시를 붙인다 — 다이제스트만 갱신되는 1패스.
-            lines.append(f"| {label} | `{command}` | {CARRIED_PREFIX}{carried[label]} |")
+            lines.append(f"| {label} | `{command}` | {CARRIED_PREFIX} {carried[label]} |")
         else:
             # 이전 표가 없다(최초 생성). 빈 칸 — 숫자를 지어내지 않는다.
             lines.append(f"| {label} | `{command}` | {NO_PREVIOUS} |")

@@ -35,6 +35,8 @@ import re
 import subprocess
 import sys
 
+import pytest
+
 REPO = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 
@@ -44,6 +46,19 @@ from continuity_check import main as checker_main  # noqa: E402
 STATE = REPO / ".harness/state.json"
 HANDOFF = REPO / "docs/session-handoff.md"
 VERIFICATION_BASELINE_COMMAND = sh.VERIFICATION_COMMANDS[0][1]
+
+
+@pytest.fixture(autouse=True)
+def _isolate_git(monkeypatch):
+    """`previous_rows` 의 커밋본 폴백을 테스트에서 격리한다.
+
+    `pytest.ini` 의 `--basetemp=.tmp/pytest` 가 **저장소 안**이라, tmp-root 로
+    `render`/`previous_rows` 를 부르면 `git show HEAD:docs/session-handoff.md`
+    가 **실제 저장소**의 커밋본을 끌어온다. 그러면 tmp 테스트가 자기 입력이
+    아니라 실저장소 데이터를 재게 된다 (2026-10-01 실측).
+    필요한 테스트는 이 위에서 `sh._git` 을 다시 monkeypatch 한다.
+    """
+    monkeypatch.setattr(sh, "_git", lambda *args, **kwargs: "")
 
 
 # ── 1) 파일이 실제로 만들어진다 ─────────────────────────────────────────
@@ -257,10 +272,10 @@ def test_generated_handoff_does_not_designate_a_competing_ssot(tmp_path):
 def test_previous_rows_survives_a_pipe_in_the_result_cell(tmp_path):
     """결과 칸에 `|` 가 있어도 그 행을 버리지 않는다 (2026-10-01 독립 리뷰 [Low]).
 
-    결과 칸은 `_stable(tail)` = 임의의 명령 출력이라 `continuity_check` 위반
-    메시지처럼 `|` 를 담을 수 있다. 예전 파서는 `len(cells) == 3` 을 요구해
-    그런 행을 조용히 탈락시켰고, 하필 baseline 이면 다음 1패스가 빈 표가 되어
-    거짓 exit=1 이 한 번 기록된다.
+    결과 칸은 `_stable(tail)` = 임의의 명령 출력이라 `|` 를 담을 수 있다
+    (diff·표가 섞인 출력). 예전 파서는 `len(cells) == 3` 을 요구해 그런 행을
+    조용히 탈락시켰고, 하필 baseline 이면 다음 1패스가 빈 표가 되어 거짓
+    exit=1 이 한 번 기록된다.
     """
     root = tmp_path / "repo"
     (root / "docs").mkdir(parents=True)
@@ -291,6 +306,14 @@ def test_previous_rows_strips_the_carried_prefix(tmp_path):
     )
     assert rows["baseline"] == "exit=0 ✅ — 5 passed"
 
+    # 접두만 있고 값이 없는 행은 빈 문자열이 아니라 **버려져야** 한다
+    # (2026-10-01 독립 리뷰 [Low]).
+    (root / "docs/session-handoff.md").write_text(
+        f"| baseline | `x` | {sh.CARRIED_PREFIX} |\n", encoding="utf-8")
+    assert sh.previous_rows(root) == {}, (
+        "접두만 있는 행이 빈 값으로 저장됐다 — render 가 `(이전 실행) ` 만 출력한다"
+    )
+
 
 def test_carry_labels_track_the_command_list():
     """`_TABLE_ROW` 의 라벨이 `VERIFICATION_COMMANDS` 에서 파생돼야 한다.
@@ -298,10 +321,18 @@ def test_carry_labels_track_the_command_list():
     2026-10-01 독립 리뷰 [Low]: 라벨을 두 곳에 손으로 적어 두면 한쪽만 고쳤을 때
     그 행이 조용히 캐리에서 빠진다 — baseline 이면 거짓 exit=1 로 이어진다.
     """
-    for label, _ in sh.VERIFICATION_COMMANDS:
-        assert sh._TABLE_ROW.match(f"| {label} | `x` | y |"), (
-            f"'{label}' 이 _TABLE_ROW 에서 안 잡힌다 — 캐리에서 조용히 빠진다"
-        )
+    # 2026-10-01 독립 리뷰 [Low]: "라벨이 매칭되는가"만 보면 **손으로 적은 동일
+    # 목록**도 통과한다(수정 전 코드가 그랬다 — 회귀를 못 잡는 테스트였다).
+    # 파생 **구조 자체**를 고정한다.
+    expected = (
+        r"^\|\s*("
+        + "|".join(re.escape(label) for label, _ in sh.VERIFICATION_COMMANDS)
+        + r")\s*\|"
+    )
+    assert sh._TABLE_ROW.pattern == expected, (
+        "_TABLE_ROW 가 VERIFICATION_COMMANDS 에서 파생되지 않았다 — 라벨을 두 곳에 "
+        "손으로 적으면 한쪽만 고쳤을 때 그 행이 조용히 캐리에서 빠진다"
+    )
 
 
 def test_previous_rows_falls_back_to_the_committed_document(tmp_path, monkeypatch):
@@ -329,6 +360,18 @@ def test_previous_rows_falls_back_to_the_committed_document(tmp_path, monkeypatc
     assert rows.get("baseline") == "exit=0 ✅ — 42 passed", (
         "커밋본 폴백이 작동하지 않는다 — placeholder 행이 측정값으로 취급돼 "
         "폴백이 막히고 거짓 exit=1 이 기록된다"
+    )
+
+    # 부분 손실: 디스크에 **다른 행은 살아 있고 baseline 만 빠진** 경우에도
+    # 커밋본에서 그 라벨을 채워야 한다 (2026-10-01 독립 리뷰 [Low]).
+    (root / "docs/session-handoff.md").write_text(
+        "| 연속성 | `y` | exit=0 ✅ — 살아 있음 |\n", encoding="utf-8")
+    rows = sh.previous_rows(root)
+    assert rows.get("baseline") == "exit=0 ✅ — 42 passed", (
+        "전체가 빈 경우만 폴백한다 — baseline 행만 손실되면 거짓 exit=1 이 다시 난다"
+    )
+    assert rows.get("연속성") == "exit=0 ✅ — 살아 있음", (
+        "디스크(최신) 행이 커밋본을 덮어야 한다"
     )
 
 

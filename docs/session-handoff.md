@@ -21,7 +21,7 @@
 
 ## 실측 검증 (write 시점에 돌린 결과다)
 
-측정 시점 HEAD: `ef6eb3b` · 브랜치 `chore/plan-harness-v2`
+측정 시점 HEAD: `1917b0e` · 브랜치 `chore/plan-harness-v2`
 
 > ⚠ **출처**: 아래 결과는 이 문서를 커밋하기 **전의 작업 트리**에서 돌았다.
 > `write` 는 커밋 전에 불리므로 위 해시는 이 문서를 담는 커밋의 **부모**다.
@@ -39,6 +39,7 @@
 
 ## 이번 세션에 한 일
 
+- 1917b0e chore(harness): 세션 종료 — 라운드 4 리뷰 기록을 반영한다
 - ef6eb3b fix(harness): 캐리 파서·부트스트랩 결함 9건을 독립 리뷰 후 닫는다
 - ab0f712 chore(harness): 세션 종료 — HARNESS-003 리뷰 기록을 반영한다
 - f8e85ad docs(harness): 진입 문서를 지도 역할로 줄이고 중복 절을 원문 이관한다 (HARNESS-003)
@@ -50,7 +51,6 @@
 - 9e8384a feat(requirements): playwright·patchright 결합을 파일 제약으로 강제한다
 - 07dad93 fix(harness): write 가 거짓 exit=1 을 기록하는 순환을 닫는다
 - 73367de chore(plan): 하네스 CLI 갱신(제안 ADR 캡슐 표시, ADR 상태 표기 확대, 기준선 계획 폴더 새 문서 허용)
-- 92ce606 docs(agents): git push 정책 명시(기능 브랜치 push·PR은 사용자 상시 승인, main·force·병합·배포는 매번 승인)
 
 ## 남은 것 / 다음 세션
 

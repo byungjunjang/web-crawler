@@ -47,7 +47,10 @@ def _version_upper_bound(constraint: str) -> str | None:
     `python_version<"3.14"` 에도 `<` 가 있으므로 substring 검사만 하면
     "버전 상한이 없는데 통과"하는 구멍이 생긴다(독립 리뷰 finding).
     """
-    match = re.search(r"<\s*(\d[\w.]*)", constraint)
+    # 환경 마커는 `;` 뒤에 온다(PEP 508). 앞부분만 본다 — `python_version<3.14`
+    # 같은 마커의 `<` 를 버전 상한으로 오인하지 않는다 (2026-10-01 독립 리뷰 [Low]).
+    specifier = constraint.split(";", 1)[0]
+    match = re.search(r"<\s*(\d[\w.]*)", specifier)
     return match.group(1) if match else None
 
 
@@ -61,6 +64,10 @@ def test_version_upper_bound_ignores_environment_markers():
     assert _version_upper_bound('>=1.62,<1.64; python_version<"3.14"') == "1.64"
     assert _version_upper_bound('>=1.62; python_version<"3.14"') is None
     assert _version_upper_bound('>=1.62') is None
+    # 2026-10-01 독립 리뷰 [Low]: 마커가 **인용 없이** 오면(`python_version<3.14`,
+    # 잘못된 PEP 508 이지만 파싱은 된다) `;` 뒤도 버전 제약으로 오인해 "3.14" 를
+    # 상한으로 반환했다. `;` 앞만 보게 고쳐 그 경로를 실제로 고정한다.
+    assert _version_upper_bound('>=1.62; python_version<3.14') is None
 
 
 def test_playwright_has_upper_bound():
