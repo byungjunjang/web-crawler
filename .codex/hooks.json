@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'sh \"$(git rev-parse --show-toplevel)/.plan/bin/run.sh\" plan.mjs capture --tool codex --format codex --remind'",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'sh \"$(git rev-parse --show-toplevel)/.plan/bin/run.sh\" plan.mjs stop-gate'",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "version": 3,
+  "ledger": "<git-common-dir>/plan/ledger.jsonl",
+  "history_ref": "refs/plan/ledger"
+}

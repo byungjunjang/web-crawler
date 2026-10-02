@@ -20,10 +20,21 @@ scrapling[fetchers]>=0.4.8,<0.5
 
 # 아래 셋은 scrapling[fetchers] 의 전이 의존이지만, 우리 코드가 '직접' import 하므로
 # 직접 선언해 버전 통제권을 가져온다. 하한은 2026-08-20 실측 설치본 기준.
-# ⚠ playwright 와 patchright 는 버전이 함께 움직여야 한다(둘 다 1.62.x) — 한쪽만 크게 올리지 말 것.
-playwright>=1.62             # scripts/chrome_cdp.py, scripts/preflight.py, 생성 crawl_script.py(SPA 인터셉트)
+# ⚠ playwright 와 patchright 의 제약식은 **바이트 동일**해야 한다 (ADR-002).
+#   patchright 는 playwright 의 마이너 라인을 따라가는 미탐지 fork 다.
+#   주석이 아니라 파일 제약으로 둬서, 한쪽만 고치는 변경을 CI 가 먼저 잡게 한다
+#   (scripts/test_requirements.py).
+#   ⚠ 정직한 한계: 제약식이 같다고 **해석된 버전**이 같아지지는 않는다.
+#     patchright 만 1.60.1 / 1.61.2 / 1.62.3 같은 추가 패치가 있다. 실측으로
+#     .venv 가 playwright 1.62.0 + patchright 1.62.3 이었고 둘 다 이 범위를 만족한다.
+#     이 파일이 강제하는 것은 "마이너 라인이 같은 **허용 범위**"와 "한쪽만 바뀌는 변경 금지"다.
+#     정확히 같은 버전을 원하면 lockfile 가 필요하다 — 이 저장소에는 없다.
+#   허용 범위 1.62 ~ 1.63.x. 상한 <1.64 는 1.64 출시에 patchright 를 두고
+#   독주하는 것을 막는 브레이크다. 값은 2026-09-28 pypi.org 실측(양쪽 최신 1.63.0,
+#   1.64 미출시). 1.64 가 나오면 두 줄을 함께 올린다.
+playwright>=1.62,<1.64       # scripts/chrome_cdp.py, scripts/preflight.py, 생성 crawl_script.py(SPA 인터셉트)
 curl_cffi>=0.16              # 사다리 4단 경량 그리드
-patchright>=1.62             # StealthyFetcher 런타임 (scripts/bootstrap.py 가 설치 검증)
+patchright>=1.62,<1.64       # StealthyFetcher 런타임 (scripts/bootstrap.py 가 설치 검증)
 
 protego>=0.3.0               # robots.txt 파서 — scripts/utils.py check_robots() 에서 사용
 openpyxl>=3.1                # 엑셀(.xlsx) 출력

@@ -58,17 +58,24 @@ docs/
 # 판단 근거는 docs/decisions/ADR-001-harness-lean-install.md.
 !docs/
 docs/*
+# 에이전트 상세 참조 — AGENTS.md·CLAUDE.md 가 링크한다. 무시되면 clean clone 에서
+# 그 링크가 끊긴다(2026-10-01 HARNESS-003).
+!docs/agents-reference.md
 !docs/decisions/
 docs/decisions/*
 !docs/decisions/ADR-001-harness-lean-install.md
+!docs/decisions/ADR-002-playwright-patchright-coupling.md
 !docs/plan-approvals/
 docs/plan-approvals/*
 !docs/plan-approvals/CONTINUITY-REV-001.md
+!docs/plan-approvals/PY311-001-APPROVAL.md
 !docs/task-contracts/
 docs/task-contracts/*
 !docs/task-contracts/HARNESS-001.md
+!docs/task-contracts/PY311-001.md
 # 하네스가 세션 종료 시 생성하는 핸드오프 (읽는 사람이 있으므로 커밋한다)
 !docs/session-handoff.md
 
 # 세션 상태 (tdd-context-dev) — 로컬 전용. docs/ 와 같은 규약.
 .context/
+.plan/CAPSULE.md
