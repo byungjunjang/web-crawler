@@ -130,6 +130,8 @@ if verdict["crawl_delay"]:
 >
 > **시작 전 (양 host 공통)**: 우선 `agent-browser skills get core --full`을 실행해 agent-browser 사용법(snapshot-and-ref 워크플로우, 네트워크 캡처 등)을 로드한다. 설치된 구버전이 `Unknown command: skills`를 반환하면 `agent-browser --help`에서 snapshot/network 명령을 로드한다. 이 오류만으로 agent-browser 자체가 불능이라고 판정하거나 폴백으로 내려가지 않는다.
 >
+> **Windows — 데몬은 분리해서 먼저 띄운다 (2026-10-23 실측).** 데몬이 없을 때의 첫 호출이 띄운 데몬은 호출자의 stdout/stderr 통로를 물려받아 쥔 채 산다. 그래서 출력 끝(EOF)을 기다리는 호출자 — PowerShell 파이프·`$x = (...)`·`Start-Job`·에이전트의 셸 도구 — 는 데몬이 죽을 때까지 돌아오지 않는다. CLI 는 몇 초 만에 끝나고 페이지도 열려 있으므로, **사이트 차단으로 오판하지 않는다**(쿠팡·다나와에서 두 번 이렇게 멈췄다 — 냉시동 60초+ / 데몬 있을 때 1.3초). 첫 호출 전에 `Start-Process agent-browser.cmd -ArgumentList 'open','about:blank' -WindowStyle Hidden -Wait` 로 데몬을 띄우면 이후 호출은 평소대로 2초 안팎이다. `close --all` 뒤에는 데몬이 사라지므로 다음 첫 호출 전에 다시 띄운다.
+>
 > CLI가 없거나 브라우저 실행이 막힌 제한 환경에서만 아래 **정찰 폴백 티어**로 내려간다. 환경 셋업·검증은 `scripts/setup.ps1`(Windows) 또는 `scripts/bootstrap.py` + `scripts/preflight.py`.
 >
 > | 티어 | 도구 | host |
