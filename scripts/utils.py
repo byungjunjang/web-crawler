@@ -3,8 +3,71 @@ import json
 import logging
 import os
 import re
+import shutil
 import time
+from pathlib import Path
 from urllib.parse import urlparse
+
+
+def ensure_ascii_ca_bundle() -> str | None:
+    """CA 번들 경로에 비ASCII 문자가 있으면 ASCII 경로로 복사해 두고 curl 에게 알려준다.
+
+    Windows 의 libcurl 은 CA 파일 경로를 ANSI 로 연다. 그래서 저장소를 한글 폴더에
+    clone 하거나 사용자명이 한글이면 certifi 번들 경로를 못 읽고, 모든 HTTPS 요청이
+    `curl: (77) error adding trust anchors` 로 죽는다. 수집이 통째로 안 되는데
+    증상은 '네트워크 문제' 처럼 보여서 원인을 찾기 어렵다.
+
+    한글 경로는 이 도구의 주 사용자에게 흔한 조건이라 여기서 흡수한다.
+    이미 CURL_CA_BUNDLE 이 설정돼 있으면 사용자의 선택을 존중해 건드리지 않는다.
+
+    Returns: 사용할 CA 번들 경로. 손댈 필요가 없거나 실패하면 None.
+    """
+    if os.environ.get("CURL_CA_BUNDLE"):
+        return None
+    try:
+        import certifi
+        src = certifi.where()
+    except Exception:
+        return None
+
+    if _is_ascii(src):
+        return None  # 경로가 멀쩡하다 — 할 일 없음
+
+    for base in _ca_cache_candidates():
+        if not base or not _is_ascii(str(base)):
+            continue
+        try:
+            dest = Path(base) / "web-crawler" / "cacert.pem"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if not dest.exists() or dest.stat().st_size != os.stat(src).st_size:
+                shutil.copyfile(src, dest)
+            os.environ["CURL_CA_BUNDLE"] = str(dest)
+            os.environ.setdefault("SSL_CERT_FILE", str(dest))
+            return str(dest)
+        except Exception:
+            continue
+    return None
+
+
+def _is_ascii(value) -> bool:
+    """libcurl 이 ANSI 로 열 수 있는 경로인가."""
+    return str(value).isascii()
+
+
+def _ca_cache_candidates():
+    """ASCII 일 가능성이 높은 순서로 캐시 위치 후보를 낸다."""
+    import tempfile
+    return [
+        os.environ.get("LOCALAPPDATA"),
+        os.environ.get("XDG_CACHE_HOME"),
+        tempfile.gettempdir(),
+        os.environ.get("ProgramData"),
+    ]
+
+
+# import 시점에 처리한다 — 생성되는 crawl_script.py 는 이 모듈을 먼저 import 하므로
+# 첫 요청 전에 자동으로 적용된다.
+ensure_ascii_ca_bundle()
 
 
 class BudgetExceeded(Exception):

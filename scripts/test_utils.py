@@ -1,11 +1,16 @@
 """scripts/test_utils.py"""
 import json
 import os
+import shutil
+import tempfile
 import time
+from pathlib import Path
+
 import pytest
 from unittest.mock import patch
 from utils import (
     RateLimiter,
+    ensure_ascii_ca_bundle,
     detect_pii,
     load_cookies,
     save_cookies,
@@ -610,3 +615,87 @@ def test_phone_pattern_flags_bare_mobile_number(value):
     """구분자 없는 11자리 휴대폰은 형식이 명확하므로 잡는다."""
     warnings = detect_pii([{"메모": value}])
     assert any("전화번호" in w for w in warnings), f"놓침: {value!r}"
+
+
+# --- CA 번들 (한글 경로 환경) ---
+#
+# 주의: pytest.ini 가 --basetemp=.tmp/pytest 라서 tmp_path 는 저장소 안에 생긴다.
+# 저장소를 한글 폴더에 두면 tmp_path 자체가 비ASCII 라 여기서는 쓸 수 없다 —
+# 경로의 ASCII 여부가 바로 이 테스트의 대상이기 때문이다. 그래서 시스템 임시 경로를 쓴다.
+
+def _ascii_base():
+    """ASCII 경로인 상위 디렉터리를 찾는다.
+
+    conftest 가 tempfile.tempdir 을 저장소 안(.tmp)으로 고정하므로 mkdtemp() 를
+    그냥 부를 수 없다 — 저장소가 한글 폴더면 그 결과도 한글이다. dir= 로 우회한다.
+    """
+    for base in (os.environ.get("LOCALAPPDATA"), os.environ.get("ProgramData"),
+                 os.environ.get("TMPDIR"), "/tmp"):
+        if base and str(base).isascii() and Path(base).is_dir():
+            return base
+    return None
+
+
+@pytest.fixture
+def ascii_dir():
+    """ASCII 임이 보장된 작업 디렉터리."""
+    base = _ascii_base()
+    if base is None:
+        pytest.skip("ASCII 경로인 상위 디렉터리를 찾지 못해 건너뜁니다")
+    path = tempfile.mkdtemp(dir=base)
+    try:
+        yield Path(path)
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def _fake_certifi(monkeypatch, path):
+    """certifi.where() 가 주어진 경로를 돌려주도록 만든다."""
+    import certifi
+    monkeypatch.setattr(certifi, "where", lambda: str(path))
+
+
+def test_ca_bundle_untouched_when_path_is_ascii(monkeypatch, ascii_dir):
+    """경로가 멀쩡하면 아무것도 하지 않는다 — 괜히 복사본을 만들지 않는다."""
+    src = ascii_dir / "cacert.pem"
+    src.write_bytes(b"x")
+    monkeypatch.delenv("CURL_CA_BUNDLE", raising=False)
+    _fake_certifi(monkeypatch, src)
+
+    assert ensure_ascii_ca_bundle() is None
+    assert "CURL_CA_BUNDLE" not in os.environ
+
+
+def test_ca_bundle_copied_when_path_has_hangul(monkeypatch, ascii_dir):
+    """한글 경로면 ASCII 위치로 복사하고 CURL_CA_BUNDLE 을 그리로 향하게 한다."""
+    src_dir = ascii_dir / "한글폴더"
+    src_dir.mkdir()
+    src = src_dir / "cacert.pem"
+    src.write_bytes(b"CERT-DATA")
+    cache = ascii_dir / "cache"
+    cache.mkdir()
+
+    monkeypatch.delenv("CURL_CA_BUNDLE", raising=False)
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
+    _fake_certifi(monkeypatch, src)
+    monkeypatch.setattr("utils._ca_cache_candidates", lambda: [str(cache)])
+
+    dest = ensure_ascii_ca_bundle()
+
+    assert dest is not None
+    assert Path(dest).read_bytes() == b"CERT-DATA"
+    assert os.environ["CURL_CA_BUNDLE"] == dest
+    dest.encode("ascii")  # ASCII 여야 libcurl 이 연다
+
+
+def test_ca_bundle_respects_user_override(monkeypatch, ascii_dir):
+    """사용자가 이미 지정했으면 존중한다 — 덮어쓰지 않는다."""
+    src_dir = ascii_dir / "한글폴더"
+    src_dir.mkdir()
+    src = src_dir / "cacert.pem"
+    src.write_bytes(b"x")
+    monkeypatch.setenv("CURL_CA_BUNDLE", r"C:\my\own.pem")
+    _fake_certifi(monkeypatch, src)
+
+    assert ensure_ascii_ca_bundle() is None
+    assert os.environ["CURL_CA_BUNDLE"] == r"C:\my\own.pem"
