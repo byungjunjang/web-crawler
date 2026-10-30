@@ -249,6 +249,28 @@ def test_robots_missing_file_allows(monkeypatch):
     assert check_robots("https://example.com/")["allowed"] is True
 
 
+def test_robots_real_404_is_not_an_error(monkeypatch):
+    """urlopen 은 404 를 HTTPError 로 던진다 — 그래도 오류가 아니라 '제한 없음' 이어야 한다."""
+    from urllib.error import HTTPError
+
+    def _raise_404(req, timeout=10):
+        raise HTTPError(req.full_url, 404, "Not Found", {}, None)
+    monkeypatch.setattr("urllib.request.urlopen", _raise_404)
+    result = check_robots("https://example.com/")
+    assert result["allowed"] is True
+    assert result["error"] is None
+
+
+def test_robots_other_http_error_is_reported(monkeypatch):
+    """404 외의 HTTP 오류(예: 403)는 '가져오지 못함' 으로 보고한다."""
+    from urllib.error import HTTPError
+
+    def _raise_403(req, timeout=10):
+        raise HTTPError(req.full_url, 403, "Forbidden", {}, None)
+    monkeypatch.setattr("urllib.request.urlopen", _raise_403)
+    assert check_robots("https://example.com/")["error"] is not None
+
+
 def test_robots_network_error_is_reported_not_swallowed(monkeypatch):
     """가져오지 못한 것과 허용된 것은 다르다 — 사용자가 구분할 수 있어야 한다."""
     def _boom(url, timeout=10):
