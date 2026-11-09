@@ -290,6 +290,14 @@ def test_robots_http_5xx_through_real_fetch_is_still_reported(monkeypatch):
     assert result["allowed"] is True     # 차단 근거가 없으므로 막지는 않는다
 
 
+def test_robots_http_403_through_real_fetch_is_still_reported(monkeypatch):
+    """#7의 회귀 사례: 404 외의 HTTP 오류를 허용 응답으로 바꾸지 않는다."""
+    monkeypatch.setattr("urllib.request.urlopen", _raise_http_error(403, "Forbidden"))
+    result = check_robots("https://example.com/")
+    assert result["error"] is not None
+    assert "403" in result["error"]
+
+
 def test_robots_url_error_through_real_fetch_is_still_reported(monkeypatch):
     """HTTPError 가 아닌 네트워크 예외(URLError)는 그대로 error 로 올라온다."""
     from urllib.error import URLError
