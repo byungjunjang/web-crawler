@@ -1,0 +1,3 @@
+# 생성 마커는 Windows 체크아웃에서도 LF를 유지한다.
+.agents/skills/_GENERATED.md text eol=lf
+.codex/skills/_GENERATED.md text eol=lf
