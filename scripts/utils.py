@@ -7,6 +7,61 @@ import time
 from urllib.parse import urlparse
 
 
+_IS_WINDOWS = os.name == "nt"
+
+
+def ensure_ascii_ca_bundle() -> str | None:
+    """Windows curl의 비ASCII CA 경로를 요청 전에 ASCII 캐시로 옮긴다.
+
+    사용자 인증서 설정은 유지한다. import만으로 파일이나 환경변수를 바꾸지 않는다.
+    """
+    if not _IS_WINDOWS or any(os.environ.get(key) for key in (
+        "CURL_CA_BUNDLE", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE"
+    )):
+        return None
+    import tempfile
+    from pathlib import Path
+
+    try:
+        import certifi
+        src = Path(certifi.where())
+        if str(src).isascii():
+            return None
+        data = src.read_bytes()
+    except (ImportError, OSError):
+        return None
+
+    for base in _ca_cache_candidates():
+        if not base or not str(base).isascii():
+            continue
+        temporary = None
+        try:
+            dest = Path(base) / "web-crawler" / "cacert.pem"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if not dest.exists() or dest.read_bytes() != data:
+                with tempfile.NamedTemporaryFile(dir=dest.parent, delete=False) as stream:
+                    temporary = Path(stream.name)
+                    stream.write(data)
+                os.replace(temporary, dest)
+            os.environ["CURL_CA_BUNDLE"] = str(dest)
+            return str(dest)
+        except OSError:
+            continue
+        finally:
+            if temporary is not None:
+                try:
+                    temporary.unlink(missing_ok=True)
+                except OSError:
+                    pass
+    return None
+
+
+def _ca_cache_candidates():
+    import tempfile
+    return [os.environ.get("LOCALAPPDATA"), tempfile.gettempdir(),
+            os.environ.get("ProgramData")]
+
+
 class BudgetExceeded(Exception):
     """수집 부담 상한을 넘었다. 계속 두드리지 말고 멈춘다.
 
@@ -314,6 +369,7 @@ def _apply_plain_kwargs(kw: dict) -> dict:
 def plain_get(url: str, **kw):
     """사다리 1단. 위장 없는 평문 HTTP — 안티봇이 없는 사이트에 쓴다."""
     kw = _apply_plain_kwargs(kw)
+    ensure_ascii_ca_bundle()
     from scrapling.fetchers import Fetcher  # lazy — utils 는 scrapling 을 물지 않는다
     return Fetcher.get(url, **kw)
 
@@ -321,6 +377,7 @@ def plain_get(url: str, **kw):
 def plain_session(**kw):
     """사다리 2단. 위장 없는 세션 — 숨은 API 를 직접 호출할 때 쓴다."""
     kw = _apply_plain_kwargs(kw)
+    ensure_ascii_ca_bundle()
     from scrapling.fetchers import FetcherSession  # lazy
     return FetcherSession(**kw)
 
