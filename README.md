@@ -2,7 +2,18 @@
 
 여러 웹사이트에서 원하는 정보를 **자동으로 모아 엑셀로 정리**해 주는 AI 에이전트입니다. 코딩을 몰라도 *"이 사이트에서 이런 걸 모아줘"* 라고 말하면 에이전트가 알아서 사이트를 살펴보고(정찰), 데이터를 수집하고, 엑셀 파일로 만들어 줍니다.
 
-> 사용자가 직접 프로그램을 짜는 게 아닙니다. **Claude Code나 Codex 같은 AI 코딩 에이전트**에게 자연어로 부탁하면 이 레포에 담긴 도구·규칙·과거 수집 노하우를 따라 에이전트가 대신 수집해 줍니다.
+> 사용자가 직접 프로그램을 짜는 게 아닙니다. **Claude Code, Codex, ChatGPT Work 로컬 같은 AI 작업 에이전트**에게 자연어로 부탁하면 이 레포에 담긴 도구·규칙·과거 수집 노하우를 따라 에이전트가 대신 수집해 줍니다.
+
+## 지원 실행 환경
+
+| 환경 | 사용 방법 | 지원 범위 |
+|---|---|---|
+| **Codex CLI·IDE·데스크톱** | 이 저장소 루트에서 시작 | 전체 파이프라인 |
+| **ChatGPT Work 로컬** | ChatGPT 데스크톱 앱에서 이 저장소를 주 폴더로 열고 **Work locally** 선택 | 전체 파이프라인(로컬 셸·브라우저 권한 필요) |
+| **Claude Code / Claude Cowork** | 기존 `.claude/skills` 정본 사용 | 호스트 권한 범위 |
+| **ChatGPT Work 클라우드** | OpenAI 호스티드 환경 | 로컬 `.venv`·브라우저·CDP를 상속하지 않으므로 이 프로젝트의 전 파이프라인에는 부적합 |
+
+Codex 공식 저장소 스킬이자 ChatGPT Work 로컬의 공유 진입점은 `.agents/skills/web-crawler`입니다. `.claude/skills`가 정본이고, `.agents/skills`와 기존 호환용 `.codex/skills`는 `scripts/sync_codex_mirror.py`가 함께 생성합니다. Codex는 `.agents/skills`를 자동 발견하며, Work 로컬은 루트 `AGENTS.md`를 통해 같은 경로를 사용합니다. 자세한 발견 규칙은 [OpenAI의 AGENTS.md 안내](https://learn.chatgpt.com/docs/agent-configuration/agents-md), [스킬 작성 안내](https://learn.chatgpt.com/docs/build-skills), [ChatGPT Work 로컬 보안 안내](https://learn.chatgpt.com/docs/enterprise/chatgpt-work-local-security)를 참고하세요.
 
 ## 시작하기 전에 — 어디까지 수집해도 되나
 
@@ -294,7 +305,7 @@ fingerprints/                        # gitignore + 배포 화이트리스트 (de
 ## 안전 규칙 (에이전트가 항상 지킴)
 
 - **자동 접근 차단을 만나면 한 번 확인** — CAPTCHA·WAF·봇 탐지를 만나면 자동으로 넘어가지 않고 사용자에게 알린 뒤 묻습니다. *판단의 주체가 사용자이기 때문입니다. 능력이 없는 것과는 무관합니다.* '진행' 을 고르면 그대로 진행합니다
-- **CAPTCHA 자동 풀이는 하지 않음** — 위 확인과는 별개입니다. *프로그램으로 CAPTCHA 를 푸는 것은 보호조치를 직접 무력화하는 행위입니다.* 사용자가 직접 풀고 이어가는 것은 가능합니다
+- **CAPTCHA 는 도구가 넘기거나 사용자가 직접 풉니다** — 위 확인과는 별개입니다. Cloudflare 챌린지·Turnstile 은 Scrapling `solve_cloudflare` 로 통과하고, 도구가 못 넘는 CAPTCHA 는 보이는 브라우저 창을 띄워 사용자가 직접 푼 뒤 그 세션으로 이어갑니다. *외부 CAPTCHA 풀이 서비스(유료 풀이 API·풀이 대행)는 쓰지 않습니다.*
 - **로그인 자격증명 저장 안 함** — 사용자가 직접 로그인하고 쿠키만 가져옵니다. *ID·PW 가 파일이나 로그에 남지 않게 하기 위해서입니다*
 - **robots.txt 를 실제로 확인** — 정찰 전에 `check_robots()` 로 읽고 차단이면 사용자에게 묻습니다. *robots.txt 자체에 법적 구속력은 없지만 무시했다는 사실은 "알고도 했다" 의 정황이 됩니다*
 - **요청 간격** — 기본 1~2초 간격, 지연 하한 0.5초, rate limit 응답이 연속 3회면 중단합니다. **총 요청 상한은 기본값이 없습니다. `max_requests` 로 직접 설정하세요.** *부담은 접근과 별개 축이고 여기에도 형사 층(업무방해)이 있습니다*
@@ -322,7 +333,9 @@ git diff --cached --name-only        # commit 직전 무엇이 올라가는지 �
 ## 참고 문서
 
 - `ACCEPTABLE_USE.md` — 이용 범위·사용자 책임·기여자 규칙
-- `CLAUDE.md` — 메인 에이전트 지시서 (양 host SSOT)
-- `AGENTS.md` — Codex 실행 계약 (최초 셋업 포함)
+- `CLAUDE.md` — 메인 에이전트 지시서와 Claude용 정본 계약
+- `AGENTS.md` — Codex·ChatGPT Work 실행 계약 (최초 셋업 포함)
 - `.claude/skills/web-crawler/SKILL.md` — 워크플로우 (Step 1-A/5-A 게이트 포함)
 - `.claude/skills/web-crawler/references/` — fetcher-patterns / antibot-strategies / troubleshooting
+- `.agents/skills/web-crawler/` — Codex 공식·ChatGPT Work 로컬 공유 생성 미러
+- `.codex/skills/web-crawler/` — 기존 Codex 설치 호환 생성 미러

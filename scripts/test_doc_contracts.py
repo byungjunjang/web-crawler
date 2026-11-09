@@ -209,3 +209,86 @@ def test_documented_enum_value_is_known_to_classifier(doc, field, value):
         f"{doc}: {field} 목록의 `{value}` 가 profile_policy.TOOLS 에 없다. "
         f"문서를 따라 적으면 save() 가 거부한다 — 목록에서 빼거나 TOOLS 에 등록하라"
     )
+
+
+# ── 4) 문서의 `.css(...)` 호출 kwargs 가 실제 Selector.css 시그니처에 있는가 ──
+# 2026-09-01 books.toscrape.com 수집 중 실측:
+#   TypeError: Selector.css() got an unexpected keyword argument 'storage_args'
+# 문서의 자가치유 예시가 `page.css(SEL, auto_save=True, storage_args={...})` 였는데,
+# requirements.txt 가 고정한 scrapling 0.4.x 의 `Selector.css` 는
+# (selector, identifier, adaptive, auto_save, percentage) 만 받는다. storage_args 는
+# `Selector.__init__` / `Fetcher.configure()` 쪽 인자다. import 검사(1)로는 잡히지 않고
+# 런타임에만 죽는 부류라 호출 kwargs 를 시그니처와 직접 대조한다.
+#
+# scrapling_reference.md 는 DOC_FILES(실행 계약 문서) 에 없지만 자가치유 예시를 담고
+# 있어 이 검사에만 추가한다.
+
+CSS_DOC_FILES = DOC_FILES + [REPO / "scripts/scrapling_reference.md"]
+
+_PLACEHOLDER = re.compile(r"<[^<>\n\"']*>")
+
+
+def _parse_doc_block(block: str):
+    """ast 로 파싱. `<URL>` 같은 문자열 밖 자리표시자는 이름으로 바꿔 재시도한다."""
+    try:
+        return ast.parse(block)
+    except SyntaxError:
+        pass
+    try:
+        return ast.parse(_PLACEHOLDER.sub("_PLACEHOLDER_", block))
+    except SyntaxError:
+        return None
+
+
+def _documented_css_kwargs():
+    """(문서, 블록번호, 호출 kwargs 튜플) — `.css(` 호출 중 kwargs 가 있는 것만."""
+    out = []
+    for path in CSS_DOC_FILES:
+        if not path.exists():
+            continue
+        doc = path.relative_to(REPO).as_posix()
+        text = path.read_text(encoding="utf-8")
+        for i, block in enumerate(_PY_BLOCK.findall(text)):
+            tree = _parse_doc_block(block)
+            assert tree is not None, f"{doc} 블록 {i}: 자리표시자 치환 후에도 파싱 실패"
+            for node in ast.walk(tree):
+                if not (isinstance(node, ast.Call)
+                        and isinstance(node.func, ast.Attribute)
+                        and node.func.attr == "css"):
+                    continue
+                kws = tuple(sorted(k.arg for k in node.keywords if k.arg))
+                if kws:
+                    out.append((doc, i, kws))
+    return sorted(set(out))
+
+
+CSS_KWARG_CALLS = _documented_css_kwargs()
+
+
+def test_css_kwarg_calls_were_collected():
+    """자가치유 예시(auto_save/adaptive) 가 문서에 있으니 최소 1건은 잡혀야 한다."""
+    assert CSS_KWARG_CALLS, "문서에서 kwargs 있는 `.css(` 호출을 못 찾았다 — 수집기가 깨졌다"
+
+
+@pytest.mark.parametrize("doc,idx,kwargs", CSS_KWARG_CALLS,
+                         ids=[f"{d}#{i}:css({','.join(k)})" for d, i, k in CSS_KWARG_CALLS])
+def test_documented_css_kwargs_exist_in_selector_signature(doc, idx, kwargs):
+    """문서가 `.css(...)` 에 넘기는 키워드가 설치된 scrapling 의 Selector.css 에 있는가.
+
+    이 검사가 있었으면 `storage_args=` 는 커밋되지 못했다. 네트워크를 타지 않는다 —
+    시그니처만 본다. 수신자를 정적으로 못 가르므로 Selector.css(원소) 기준이며,
+    Selectors.css(목록) 는 그 부분집합(adaptive 없음) 이라 목록에 대고 adaptive=
+    를 쓰는 예시는 따로 잡지 않는다.
+    """
+    import inspect
+
+    from scrapling.parser import Selector
+
+    allowed = set(inspect.signature(Selector.css).parameters) - {"self"}
+    unknown = [k for k in kwargs if k not in allowed]
+    assert not unknown, (
+        f"{doc} 블록 {idx}: `.css({', '.join(unknown)}=...)` — Selector.css 는 "
+        f"{sorted(allowed)} 만 받는다. 실행하면 TypeError. 저장소 경로는 "
+        f"Fetcher.configure(adaptive=True, storage_args=...) 또는 "
+        f"Selector(..., adaptive=True, storage_args=...) 로 넘긴다"
+    )

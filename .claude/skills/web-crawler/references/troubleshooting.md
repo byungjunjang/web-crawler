@@ -1,6 +1,6 @@
 # 트러블슈팅 가이드
 
-autoresearch 실험(4회 반복, 6개 사이트)과 실제 크롤링에서 발견된 실패 패턴과 해결책.
+수집 실패 패턴과 해결책.
 수집 실패 시 이 문서를 참조하여 원인을 진단한다.
 
 ## 목차
@@ -43,7 +43,7 @@ autoresearch 실험(4회 반복, 6개 사이트)과 실제 크롤링에서 발�
 - HTTP 200이지만 JS 챌린지 페이지만 반환 (< 1KB, div 몇 개)
 - `_abck`, `bm_sz` 쿠키가 설정됨
 
-### 원인 (autoresearch baseline에서 발견)
+### 원인
 `antibot_type: akamai` 로 기록된 도메인에서 수집이 0건으로 끝났다. FETCHER_CHAIN에 Chrome CDP가 포함되지 않아 DynamicFetcher까지만 시도하고 종료됨.
 
 ### 해결책
@@ -51,11 +51,6 @@ autoresearch 실험(4회 반복, 6개 사이트)과 실제 크롤링에서 발�
 2. **이음매 통지 게이트를 거친다** — Akamai 감지는 사다리 B 진입 신호다. 사용자가 '진행' 을 고른 뒤에 4·5단을 건너뛰고 Chrome CDP로 간다 (`consent` 기록이 이미 있으면 통지 없이 진행)
 3. **headed Chrome 필수** — headless Chrome은 Akamai에 탐지됨
 4. `antibot-strategies.md § Akamai` 패턴 적용
-
-### autoresearch 검증 결과
-- baseline: 0/50건 (FAIL — 체인이 사다리 A 에서 끝나 이 사이트를 풀 수 없었다)
-- exp-1: Chrome CDP 적용 → 50/50건 (100%)
-- exp-2~3: 안정적 100% 유지
 
 ---
 
@@ -95,8 +90,8 @@ WebSquare 프레임워크가 서버 측에서 SPA 네비게이션 상태를 추�
 ### 증상
 - 건수는 많지만 데이터가 달력 셀, UI 텍스트, 타임스탬프 등 쓰레기
 
-### 원인 (autoresearch exp-2에서 발견)
-g2b.go.kr에서 DOM 추출 시 달력 위젯의 날짜 셀(1~31)을 입찰공고로 오인. exp-2에서 49건의 false positive 발생.
+### 원인
+g2b.go.kr에서 DOM 추출 시 달력 위젯의 날짜 셀(1~31)을 입찰공고로 오인해 false positive 가 대량 발생한다.
 
 ### 해결책: 검증 함수 적용
 
@@ -148,7 +143,7 @@ def validate_record(record):
 - CSS Module 해시 클래스 (예: `_1a2b3c`) 때문에 셀렉터 무효
 - Next.js/React 사이트에서 클래스명이 빌드마다 변경
 
-### 해결책 (autoresearch exp-1에서 발견)
+### 해결책
 - CSS 클래스 대신 **구조적 셀렉터** 사용: `div > ul > li`, `[data-testid]`, `[aria-label]`
 - Scrapling의 **adaptive 모드** 활용: `page.css(selector, adaptive=True, auto_save=True)`
 - 별점 등 시각적 데이터는 `aria-label` 속성에서 추출
@@ -157,7 +152,7 @@ def validate_record(record):
 
 ## 검증된 사이트별 전략
 
-autoresearch 4회 실험 + 실제 크롤링에서 검증된 최적 전략:
+검증된 전략:
 
 | 사이트 | 전략 | Fetcher | 성공률 | 비고 |
 |--------|------|---------|--------|------|

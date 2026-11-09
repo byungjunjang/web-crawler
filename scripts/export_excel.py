@@ -24,7 +24,7 @@ def export_to_excel(data: list[dict], filepath: str, sheet_name: str = "수집 �
     wb = Workbook()
     ws = wb.active
     ws.title = sheet_name
-    headers = list(data[0].keys())
+    headers = list(dict.fromkeys(key for item in data for key in item))
 
     # Header row (bold)
     bold_font = Font(bold=True)

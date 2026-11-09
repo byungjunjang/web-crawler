@@ -55,10 +55,18 @@ def test_docs_do_not_overclaim_a_ban(path):
         )
 
 
-def test_captcha_rule_is_layered_with_waf():
-    """G2 — CAPTCHA 와 WAF 가 같은 층위여야 한다. 자동 풀이 금지는 별개로 유지."""
-    text = CLAUDE_MD.read_text(encoding="utf-8")
-    assert "CAPTCHA 자동 풀이 금지" in text
+@pytest.mark.parametrize("path", [CLAUDE_MD, AGENTS_MD], ids=lambda p: p.name)
+def test_captcha_rule_is_layered_with_waf(path):
+    """G2 — CAPTCHA 와 WAF 가 같은 층위여야 한다. CAPTCHA 처리 규칙은 별개로 유지.
+
+    '진행' 뒤에는 CAPTCHA 때문에 멈추지 않는다 — Cloudflare 챌린지·Turnstile 은
+    solve_cloudflare 로 넘기고, 도구가 못 넘는 CAPTCHA 는 사용자가 보이는 창에서 푼다.
+    외부 풀이 서비스 금지 문구가 사라지면 이 완화가 무제한이 된다.
+    """
+    text = path.read_text(encoding="utf-8")
+    assert "CAPTCHA 는 도구로 넘기거나 사용자가 직접 푼다" in text
+    assert "solve_cloudflare=True" in text
+    assert "외부 CAPTCHA 풀이 서비스" in text
     assert "CAPTCHA·WAF·봇 탐지는 법적으로 같은 보호조치" in text
 
 
