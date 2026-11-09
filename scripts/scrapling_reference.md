@@ -229,6 +229,7 @@ result.items.to_json("./output/raw_data.json", indent=True)
 HTML 문자열을 직접 파싱. 셀렉터 자가 치유에 사용.
 
 ```python
+from pathlib import Path
 from scrapling.parser import Adaptor
 
 html = "<div class='item'><h2>Product</h2></div>"
@@ -236,6 +237,8 @@ adaptor = Adaptor(html, url="https://example.com")
 
 # CSS 셀렉터
 items = adaptor.css("div.item h2")
+
+Path("./fingerprints").mkdir(exist_ok=True)
 
 # 자가 치유는 생성자에서 켠다 — storage_args 는 .css() 인자가 아니다 (0.4.x: TypeError)
 adaptor = Adaptor(html, url="https://example.com", adaptive=True,
@@ -267,29 +270,35 @@ Scrapling의 핵심 기능. 셀렉터가 변경되어도 핑거프린트 기반�
 
 ```python
 from pathlib import Path
-from scrapling.fetchers import Fetcher
+import logging
+import sqlite3
+from utils import plain_get
 
-STORAGE = {"storage_file": "./fingerprints/elements_storage.db", "url": url}
-Path("./fingerprints").mkdir(exist_ok=True)   # 디렉터리가 없으면 sqlite 가 응답 파싱 시점에 죽는다
-Fetcher.configure(adaptive=True, storage_args=STORAGE)   # 전역. 요청별로는 Fetcher.get(url, selector_config={...})
+logger = logging.getLogger(__name__)
 
-# 첫 수집: 핑거프린트 저장
-page = Fetcher.get(url)   # utils.plain_get(url) 도 내부가 Fetcher.get 이라 같은 설정을 탄다
-items = page.css("<SELECTOR>", auto_save=True)
+def select_items(url, selector, heal=False):
+    storage = {"storage_file": "./fingerprints/elements_storage.db", "url": url}
+    try:
+        Path("./fingerprints").mkdir(exist_ok=True)
+        page = plain_get(url, selector_config={"adaptive": True, "storage_args": storage})
+        return page.css(selector, adaptive=heal, auto_save=True)
+    except (OSError, sqlite3.Error) as exc:
+        logger.warning(f"자가치유 저장소 사용 불가, 일반 셀렉터로 계속: {exc}")
+        page = plain_get(url, selector_config={"adaptive": False})
+        return page.css(selector)
 
-# 이후 수집: 자가 치유 — 저장소 오류(잠김·권한)가 수집을 죽이지 않게 감싼다
-page = Fetcher.get(url)
-try:
-    items = page.css("<SELECTOR>", adaptive=True, auto_save=True)
-except Exception as exc:   # 자가치유만 포기하고 일반 셀렉터로 계속
-    print(f"자가치유 저장소 사용 불가: {exc}")
-    items = page.css("<SELECTOR>")
+# 첫 수집: 저장. 이후 수집: 저장된 핑거프린트로 재탐색.
+items = select_items("<URL>", "<SELECTOR>")
+items = select_items("<URL>", "<SELECTOR>", heal=True)
 ```
+
+위 예시는 요청별 `selector_config`를 써서 전역 설정을 남기지 않는다. 디렉터리 생성·파서 초기화·첫 저장·재탐색에서 저장소 오류가 나면 자가치유를 끄고 한 번 다시 요청한다. 이 추가 요청에도 `RateLimiter`를 적용한다. 네트워크 오류와 잘못된 셀렉터는 상위 수집 루프에서 처리한다.
+
 
 - 핑거프린트 저장 경로: `./fingerprints/elements_storage.db` (sqlite, 도메인별 버킷은 `storage_args["url"]` 로 나뉜다).
   지정하지 않으면 기본값은 site-packages 안의 `scrapling/elements_storage.db` 다.
 - 세션(`FetcherSession`/`plain_session`)은 `Fetcher.configure()` 를 읽지 않는다 —
-  `FetcherSession(selector_config={"adaptive": True, "storage_args": STORAGE})` 로 세션에 직접 넘긴다.
+  `FetcherSession(selector_config={"adaptive": True, "storage_args": storage})` 로 세션에 직접 넘긴다.
 
 ---
 

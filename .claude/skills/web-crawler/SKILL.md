@@ -7,7 +7,7 @@ description: URL과 수집 항목을 받아 사이트를 정찰하고 데이터�
 
 ## 절대 규칙
 
-1. **수집에는 Scrapling 또는 Playwright만 사용한다.** `requests`, `urllib`, `httpx`, `BeautifulSoup`로 직접 수집하지 않는다.
+1. **수집에는 Scrapling 또는 Playwright만 사용한다.** `requests`, `urllib`, `httpx`, `BeautifulSoup`로 직접 수집하지 않는다 — 사다리 A 래퍼(`plain_get`/`plain_session`)만 지문·Referer를 통제하고 소프트블록 검사와 이어지기 때문이다.
 2. **agent-browser는 정찰 전용이다.** agent-browser에서 `page.evaluate()`로 데이터를 추출하거나 DOM을 파싱하여 수집하는 것은 금지. agent-browser는 구조 파악, 스크린샷, 네트워크 감시에만 사용한다.
 3. **반드시 crawl_script.py를 생성하고 실행한다.** 스크립트 없이 인라인으로 수집하지 않는다.
 4. **정찰과 수집의 역할을 분리한다.** 정찰(agent-browser) → 수집(crawl_script.py 내 Scrapling/Playwright) → 출력(openpyxl).
@@ -46,17 +46,17 @@ Step 6: 엑셀 출력 & 보고
 
 ### Step 1-A: 도메인 프로필 확인
 
-재수집 시 기존 프로필이 있으면 정찰을 스킵할 수 있다.
+프로필이 있으면 notes·fetcher_type·antibot_strategy를 그대로 채택하고 Phase 0(1-B)과 정찰을 건너뛰어 Step 3으로 간다. last_used가 3개월 넘었거나 사용자가 '최신 구조로'를 요청했으면 정찰을 추가한다. consent 기록이 없는 사다리 B 프로필이면 Step 3의 이음매 통지를 거친다.
 
 ```python
 from domain_profile import DomainProfile
 profile_mgr = DomainProfile()
 if profile_mgr.exists(domain):
     profile = profile_mgr.load(domain)
-    # "이전 설정을 재사용할까요?"
-    #   → Yes(재사용): Phase 0(1-B) 건너뛰고 바로 Step 3 (검증된 레시피 보유)
-    #     단 consent 기록이 없는 사다리 B 프로필이면 이번이 최초 통과다 — Step 3 의 이음매 통지를 거친다.
-    #   → No(신규·미재사용)·프로필 없음: Step 1-B(Phase 0)부터 진행
+    # 묻지 않고 그대로 채택: Phase 0(1-B) 건너뛰고 바로 Step 3 (검증된 레시피 보유)
+    #   last_used 가 3개월 초과이거나 사용자가 '최신 구조로' 를 요청했으면 정찰을 추가한다.
+    #   consent 기록이 없는 사다리 B 프로필이면 이번이 최초 통과다 — Step 3 의 이음매 통지를 거친다.
+# 프로필 없음: Step 1-B(Phase 0)부터 진행
 ```
 
 수집 성공 후 프로필 저장:
@@ -232,8 +232,6 @@ agent-browser를 못 쓰고 현재 Codex 세션에 `chrome:control-chrome` 스�
 2. Browser Use 공개 API는 일반 document/XHR/fetch 요청 목록과 응답 status/header/body 캡처를 제공하지 않는다. read-only `evaluate()` scope에서도 `window.performance`/`document.defaultView.performance`를 사용할 수 없었다.
 3. 따라서 `/api/`·`/graphql/`·`/v1/` 후보나 JSON 응답 필드 매핑이 필요한 사이트는 **네트워크 감시 부분에 한해** 폴백 2의 Playwright `sync_api`(`page.on("response")`)를 병행한다. profile.json `notes`에는 `Codex 폴백 1 Chrome Browser Use + 폴백 2 network 보조`처럼 둘 다 기록한다.
 
-**실측 기준 (2026-08-19):** 실제 ChatGPT Chrome 확장 세션의 `books.toscrape.com`에서 DOM 스냅샷, `article.product_pod` 20개, `catalogue/page-{n}.html`, `Page 1 of 50`, 총 1000건을 재현했고 다음 페이지 클릭으로 `page-2.html → page-3.html` 패턴을 확인했다. `pageAssets`는 31개(이미지 21, 스크립트 6, 스타일시트 4)를 관찰했다. 이 사이트는 정적이라 XHR/API 후보는 없었다.
-
 > **여기서도 수집은 금지다.** Browser Use의 `evaluate()`/locator는 구조·셀렉터·페이지네이션·건수 판정에만 쓴다. DOM을 루프로 전량 추출하지 않는다. 수집은 반드시 `crawl_script.py` 안의 Scrapling 또는 Playwright로 한다.
 
 ### Step 2-A: 인증 처리
@@ -256,6 +254,28 @@ agent-browser를 못 쓰고 현재 Codex 세션에 `chrome:control-chrome` 스�
 5. 수집 시 주입은 **요청별 인자**로 한다: `session.get(url, cookies=jar)`.
    `session.cookies.update(jar)` 는 동작하지 않는다(`_SyncSessionLogic` 에 `.cookies` 없음).
 
+#### 쿠키 전달 흐름 (로그인 후)
+
+```python
+import json
+from utils import plain_session
+
+# 1. agent-browser로 수동 로그인 후 쿠키 추출 → output/<도메인>/cookies.json 저장
+#    ★ 수동 로그인 전에 `agent-browser close --all` — 데몬이 떠 있으면 --headed 가 무시된다
+with open("output/<도메인>/cookies.json") as f:
+    cookies = json.load(f)   # {"name": "value", ...}
+
+# 2. 사다리 2단 세션에 주입 (위장 인자 없음 — 로그인 쿠키는 위장이 아니다)
+#    ★ 쿠키는 **요청별 인자**로 넘긴다. `session.cookies.update(...)` 는 동작하지 않는다 —
+#      plain_session() 이 돌려주는 _SyncSessionLogic 에는 .cookies 속성이 없다.
+with plain_session() as session:
+    resp = session.get(url, cookies=cookies)
+```
+
+쿠키 파일은 `.gitignore`의 `**/cookies*.json` 패턴으로 자동 차단된다. 전용 프로필 창에서
+받은 상태를 저장했다면 **대상 도메인분만 골라** 넣는다 — 다른 사이트 세션까지 프로젝트
+폴더로 들어오지 않게.
+
 ---
 
 ## Step 3: 사이트 분류 & 수집 전략 결정
@@ -263,6 +283,8 @@ agent-browser를 못 쓰고 현재 Codex 세션에 `chrome:control-chrome` 스�
 정찰 결과로 사이트를 분류하고 수집 전략을 고른다. 전체 워크플로우에서 가장 중요한 결정이다.
 
 > **Phase 0 선행 확인됨 가정.** 여기 오기 전 [Step 1-B](#step-1-b-phase-0-공인-우회로-체크)에서 공인 API/피드(yt-dlp·RSS·oEmbed·Jina)를 이미 확인했다. Phase 0로 해결됐으면 이 트리를 건너뛴다.
+
+> 📖 도구 역할 분리 원칙과 Fetcher 선택 보충(래퍼, 프로필의 `antibot_type`)은 `references/crawl-operations.md` 를 읽는다.
 
 ### 사다리는 둘이 이어붙은 것이다
 
@@ -305,7 +327,7 @@ agent-browser를 못 쓰고 현재 Codex 세션에 `chrome:control-chrome` 스�
 - 선택 사실과 시각을 프로필 `consent` 블록에 남긴다 (Step 5-A). 이게 없으면 프로필 저장이 거부된다.
 - **이미 `consent` 기록이 있는 프로필이면 통지하지 않는다.** 그 기록 자체가 이 사용자가 이 도메인에서 통지받고 진행을 골랐다는 증거다(sticky). 프로필이 있어도 `consent`가 없다면(예: 사다리 A로만 수집돼 오다가 이번에 처음 사이트가 막은 경우) 이번이 최초로 이음매를 넘는 것이므로 그대로 통지한다.
 - **B → A → B 로 돌아온 도메인은 다시 묻는다.** 사다리 A 로 내려간 수집에서 프로필이 배포 대상이 되면 `save()` 가 `consent` 를 지운다 — 사용자가 언제 무엇을 통지받았는지를 배포되는 프로필에 실어 내보낼 수 없기 때문이다. 그래서 사이트가 나중에 새로 막기 시작하면 들고 있는 기록이 없고, 그대로 다시 통지한다. **그게 맞다 — 사이트가 새 보호를 건 것은 달라진 상황이고, 이음매를 다시 건너는 것은 새로운 사건이다.**
-- **CAPTCHA 도 같은 층위다** — 자동으로 풀지 않는 것은 그대로지만, 통지 없이 조용히 중단하지도 않는다. 다른 경로가 있는지 함께 제시한다.
+- **CAPTCHA 도 같은 층위다** — 통지 없이 조용히 넘지도, 조용히 중단하지도 않는다. '진행' 이면 멈추지 않고 이어간다: Cloudflare 챌린지·Turnstile 은 도구로 넘기고, 도구가 못 넘는 CAPTCHA 는 사용자가 보이는 창에서 직접 푼다 (아래 「CAPTCHA — 도구가 넘기거나, 사용자가 푼다」).
 
 ### 사다리 B — 상대가 막고 있다 (통지 후 진행)
 
@@ -316,6 +338,22 @@ agent-browser를 못 쓰고 현재 Codex 세션에 `chrome:control-chrome` 스�
 | **6** 실제 크롬 | 위 전부가 안 통함 | 흉내가 아니라 **실제 사용자 프로필 Chrome** 을 띄우고 그 안에서 fetch | `chrome_cdp` |
 
 > **B 는 순차가 아니다.** 고급 WAF 는 4·5 단이 원리적으로 통하지 않아 **바로 6 단**으로 간다. WAF capability 라우팅은 `references/antibot-strategies.md` 참조. **단 그 라우팅도 통지 이후에 일어난다.**
+
+### CAPTCHA — 도구가 넘기거나, 사용자가 푼다
+
+통지에서 '진행' 을 받은 뒤 CAPTCHA 를 만나면 **중단하지 않고** 아래 순서로 이어간다. 이음매 안쪽의 일이라 CAPTCHA 때문에 다시 묻지 않는다.
+
+1. **Cloudflare 관리형 챌린지·Turnstile** — 5단 `StealthyFetcher().fetch(url, solve_cloudflare=True)` 로 통과시킨다. 허용된 경로다 (`references/antibot-strategies.md § Cloudflare`).
+2. **도구가 못 넘는 CAPTCHA**(reCAPTCHA·hCaptcha 같은 대화형 퍼즐, 1번으로 안 풀린 Turnstile) — **보이는 창을 띄워 사용자가 직접 풀게 한다.**
+   `launch_chrome_cdp(url=<막힌 URL>, user_data_dir=".tmp/cdp_profile/<도메인>")` 로 전용 프로필 Chrome 을 띄우고
+   "열린 창에서 CAPTCHA 를 풀고 알려 주세요" 라고 안내한 뒤 기다린다. 사용자가 끝났다고 하면
+   `get_playwright_cdp_connection()` 으로 **그 브라우저에 붙어 같은 세션으로 수집을 이어간다.**
+   통과 쿠키(`cf_clearance` 등)는 그 브라우저의 지문·IP 에 묶여 있어 `plain_session` 으로 옮기면 다시 막히기 쉽다.
+   수집 중 CAPTCHA 가 다시 뜨면 중간 저장 후 같은 창에서 다시 풀게 하고 이어간다.
+   Chrome CDP 를 띄울 수 없는 환경이면 Step 2-A 의 `agent-browser --headed --profile <경로>` 창으로 같은 핸드오프를 한다.
+3. **외부 CAPTCHA 풀이 서비스는 쓰지 않는다** — 유료 풀이 API·풀이 대행에 페이지를 넘기지 않는다.
+
+프로필에는 실제로 쓴 값을 적는다: 1번으로 끝났으면 `antibot_strategy: stealthy`, 2번으로 이어갔으면 `chrome_cdp` 와 notes 에 "CAPTCHA 수동 풀이 필요". 코드는 `references/antibot-strategies.md § Cloudflare → StealthyFetcher`.
 
 ### 증상 → 칸 판별표
 
@@ -379,13 +417,29 @@ Step 3에서 결정한 전략에 맞는 코드 패턴을 `references/fetcher-pat
 ### 모든 수집 코드의 필수 요소
 
 1. **try/except + continue** — 한 페이지 실패가 전체를 중단시키지 않도록
-2. **consecutive_errors 추적** — 연속 5회 실패 시에만 최종 중단
+2. **consecutive_errors 추적** — 이미 통하던 티어가 연속 5회 실패하면 최종 중단
 3. **RateLimiter** — `scripts/utils.py`의 RateLimiter 사용
 4. **부분 데이터 저장** — 100건마다 raw_data.json에 중간 저장
-5. **FETCHER_CHAIN 에스컬레이션** — 연속 2회 실패 시 상위 티어로 전환. **체인은 사다리 A(3단)에서 끝난다** — 사다리 B 진입은 Step 3 의 통지 게이트를 거친다
+5. **FETCHER_CHAIN 에스컬레이션** — 아직 한 번도 통하지 않은 티어가 연속 2회 실패하면 상위 티어로 전환. **체인은 사다리 A(3단)에서 끝난다** — 사다리 B 진입은 Step 3 의 통지 게이트를 거친다
 6. **0건이면 기존 산출물을 덮지 않는다** — 같은 출력 폴더로 재실행하는 것은 흔한 일이고, 실패한 재실행이 성공했던 `raw_data.json` 을 빈 배열로 밀어버리면 "이번 실패" 가 "지난 성공 소실" 이 된다. 쓰기 직전에 `if not data: return` 로 막거나, 기존 파일이 있으면 `raw_data.json.bak` 로 옮긴 뒤 쓴다
 
-> **except 블록에서 반드시 `continue`** — 절대 `break`로 중단하지 않는다.
+> except 블록은 그 페이지만 건너뛰고(`continue`) 다음으로 간다. 루프를 끝내는 것은 필수 요소 2의 연속 실패 한도와 사다리 A 소진뿐이다.
+
+> 📖 Fetcher 에스컬레이션 순서와 Rate Limiting 간격은 `references/crawl-operations.md` 를 읽는다.
+
+### 수집 코드 생성 원칙
+
+에이전트는 **(profile.json + 정찰 결과 + 사용자 요청)** 세 가지를 합성해 Python 수집 코드를 동적으로 생성한다.
+
+- **profile.json 우선 활용**: `selectors`/`api_endpoints`/`pagination`이 있으면 그걸 기반으로 코드 골격을 짠다. 새로 정찰해서 코드를 처음부터 쓰지 않는다.
+- **`output/<도메인>/` 의 이전 `crawl_script.py` 참조**: profile.json에 안 박힌 미세 디테일(배치 사이즈, JS evaluate 패턴, 예외 처리)을 그대로 가져와 재사용. 단, raw_data.json은 PII 가능성 있으므로 구조만 확인하고 데이터는 읽지 않는다.
+- `scripts/utils.py`를 import하여 RateLimiter, cookie 관리, 로깅 등 공통 기능 사용
+- `scripts/export_excel.py`를 import하여 엑셀 출력
+- `scripts/chrome_cdp.py`는 `antibot_strategy: chrome_cdp`(사다리 6단)로 기록된 도메인에서 사용 — 통지 게이트를 이미 넘은 경우
+- 수집 스크립트는 해당 작업의 출력 디렉터리 하에서 작업 (`references/output-layout.md` 참조)
+- 셀렉터 핑거프린트 저장소는 파서 생성 시 `selector_config` 또는 `Fetcher.configure()`로 지정한다. `.css()`에는 `storage_args`를 넘기지 않는다 (아래 「셀렉터 자가 치유」 참조).
+- **수집 성공 후 반드시 profile.json save/갱신** — 새로 알아낸 endpoint/selector/notes는 누적, `last_used`만 업데이트하지 말 것 (Step 5-A 게이트)
+- **새 도메인이면 `python scripts/sync_domain_list.py` 실행** — CLAUDE.md/README.md의 "알려진 도메인" 목록은 profile.json에서 생성된다. 손으로 고치지 말 것 (`scripts/test_sync_domain_list.py`가 어긋남을 잡는다)
 
 ### 출력 디렉토리 구조
 
@@ -396,6 +450,8 @@ output/<도메인>/<주제_YYYYMMDD_HHMMSS>/
 ├── crawl_result.xlsx   # 엑셀 결과
 └── progress.json       # 진행 상황
 ```
+
+> 📖 쿠키·도메인 프로필 위치와 폴더 이름 규칙은 `references/output-layout.md` 를 읽는다.
 
 ### 셀렉터 자가 치유
 
@@ -408,30 +464,35 @@ output/<도메인>/<주제_YYYYMMDD_HHMMSS>/
 
 ```python
 from pathlib import Path
-from scrapling.fetchers import Fetcher
+import logging
+import sqlite3
 from utils import plain_get
 
-STORAGE = {"storage_file": "./fingerprints/elements_storage.db",
-           "url": "<URL>"}   # url 을 빼면 도메인 구분 없이 'default' 버킷 하나에 쌓인다
-Path("./fingerprints").mkdir(exist_ok=True)   # 디렉터리가 없으면 sqlite 가 페이지 파싱 시점에 죽는다
-Fetcher.configure(adaptive=True, storage_args=STORAGE)   # 전역 · 파서 전용. 요청별로는 selector_config={...}
-page = plain_get("<URL>")   # plain_get 은 Fetcher.get 을 감싼 것이라 위 설정을 탄다 (DynamicFetcher 도 같은 configure 보유)
+logger = logging.getLogger(__name__)
 
-# 첫 수집: 핑거프린트 저장
-items = page.css("<SELECTOR>", auto_save=True)
+def select_items(url, selector, heal=False):
+    storage = {"storage_file": "./fingerprints/elements_storage.db", "url": url}
+    try:
+        Path("./fingerprints").mkdir(exist_ok=True)
+        page = plain_get(url, selector_config={"adaptive": True, "storage_args": storage})
+        return page.css(selector, adaptive=heal, auto_save=True)
+    except (OSError, sqlite3.Error) as exc:
+        logger.warning(f"자가치유 저장소 사용 불가, 일반 셀렉터로 계속: {exc}")
+        page = plain_get(url, selector_config={"adaptive": False})
+        return page.css(selector)
 
-# 이후: 자가 치유 — 셀렉터가 깨지면 저장된 핑거프린트로 재탐색
-try:
-    items = page.css("<SELECTOR>", adaptive=True, auto_save=True)
-except Exception as exc:   # sqlite 잠김·권한 등 저장소 문제로 수집을 죽이지 않는다 — 자가치유만 포기
-    logger.warning(f"자가치유 저장소 사용 불가, 일반 셀렉터로 계속: {exc}")
-    items = page.css("<SELECTOR>")
+# 첫 수집: 저장. 이후 수집: 저장된 핑거프린트로 재탐색.
+items = select_items("<URL>", "<SELECTOR>")
+items = select_items("<URL>", "<SELECTOR>", heal=True)
 ```
+
+위 예시는 요청별 `selector_config`를 써서 전역 설정을 남기지 않는다. 디렉터리 생성·파서 초기화·첫 저장·재탐색에서 저장소 오류가 나면 자가치유를 끄고 한 번 다시 요청한다. 이 추가 요청에도 `RateLimiter`를 적용한다. 네트워크 오류와 잘못된 셀렉터는 상위 수집 루프에서 처리한다.
+
 
 - 경로를 지정하지 않으면 기본값은 site-packages 안의 `scrapling/elements_storage.db` 다 — 가상환경을
   지우면 핑거프린트도 사라지므로 반드시 `./fingerprints/` 로 지정한다.
 - **세션(`plain_session`/`FetcherSession`)은 `Fetcher.configure()` 를 읽지 않는다** — 세션 자체에
-  `plain_session(selector_config={"adaptive": True, "storage_args": STORAGE})` 로 넘긴다.
+  `plain_session(selector_config={"adaptive": True, "storage_args": storage})` 로 넘긴다.
 
 ---
 
@@ -479,6 +540,15 @@ if verdict["blocked"]:
 95% 이상 유효 데이터면 통과. 미달 시 Step 4 재시도 (최대 2회).
 
 > 📖 수집 실패 시 원인 진단은 `references/troubleshooting.md`를 참조한다.
+
+> 📖 에러 유형별 대응(429·403·소프트블록·타임아웃·0건 등)은 `references/crawl-operations.md` § 에러별 대응표를 읽는다.
+
+### 검증 통과 기준 (Step 5)
+
+- 수집 건수가 목표 대비 **90% 이상** (API/HTML 수집)
+- 전체 데이터의 **95% 이상이 유효** (Step 5 검증 통과)
+- 각 필드별 **null/빈값 비율 10% 이하**
+- 미달 시 Step 4 재시도 (최대 2회). 재실패 시 수집된 데이터로 진행하되 사용자에게 경고
 
 ### 값이 그럴듯한가 (필수)
 
@@ -535,6 +605,21 @@ profile_mgr.save(domain, {
 })
 ```
 
+> `fetcher_type`/`antibot_strategy` 는 위 목록 안의 값으로 적는다. 문서에 없는 값을 지어내면 분류기가 사다리 칸을 판별하지 못해 저장이 거부되고, 사다리 B 로 수집해 놓고 A 쪽 값을 적으면 그 레시피가 배포 대상으로 잘못 분류된다.
+>
+> **여기 목록이 곧 분류기가 아는 전부는 아니다.** 실제 판정표는 `scripts/profile_policy.py` 의 `TOOLS` 하나뿐이고, 위 목록은 그중 흔히 쓰는 값을 추린 것이다. 적을 값이 애매하면 지어내지 말고 그 표를 직접 본다 — 표에 없는 값은 `save()` 가 `ConsentRequired` 로 거부한다(심사가 아니라 "분류기가 알아들을 수 있는 값을 달라" 는 뜻이다).
+>
+> **`robots.txt`·ToS 사유로 배포에서 빼야 하는 프로필은 `distribution: "local"` 을 명시한다.** 사다리 A(1~3단)라 자동으로는 `public` 이 되는 프로필이라도 이 선언은 무조건 인정된다(조이는 방향은 항상 통과). 사유는 `distribution_reason` 에 한 줄로 남긴다 — 예: `cafe.naver.com`, `www.instagram.com`.
+
+새 도메인 프로필을 처음 만들었다면 저장 직후 목록을 재생성한다 (`CLAUDE.md` 의 "알려진 도메인" 블록은 생성물):
+
+```bash
+python scripts/sync_domain_list.py          # CLAUDE.md / README.md 목록 재생성
+python scripts/sync_domain_list.py --check  # 어긋나면 exit 1
+```
+
+> 📖 `fingerprints/` 의 `.gitignore` whitelist 정책은 `references/output-layout.md` 를 읽는다.
+
 ### 게이트 규칙
 
 1. **`notes` 필드는 비워두지 않는다.** 다음 사람(미래의 나 포함)이 정찰 안 하고도 바로 수집할 수 있는 한두 줄의 결정적 정보를 적는다 — "API key는 OK, job_group_id=518이 일반 목록", "리스트는 SSR HTML, 상세는 XHR JSON — 2단으로 충분", "review API는 POST에 originProductNo 필요" 같은 형식.
@@ -574,4 +659,6 @@ export_to_excel(data, filepath)
 | `references/fetcher-patterns.md` | 모든 수집 패턴의 코드 템플릿 | Step 4에서 crawl_script.py 생성 시 |
 | `references/antibot-strategies.md` | Akamai, SPA 세션, Cloudflare 대응 전략 | Step 3에서 안티봇 감지 시 |
 | `references/troubleshooting.md` | 실패 사례와 해결책 | 수집 실패 시 원인 진단 |
+| `references/crawl-operations.md` | 도구 역할 분리, Fetcher 선택 보충, 에스컬레이션, 에러별 대응표, Rate Limiting | Step 3 전략 결정, Step 4 코드 생성, 수집 실패 시 |
+| `references/output-layout.md` | 출력·저장 디렉터리 구조, `.gitignore` whitelist 정책 | Step 4 출력 폴더 생성, Step 5-A 프로필 저장 시 |
 | `scripts/scrapling_reference.md` | Scrapling API 레퍼런스 (Fetcher 종류·Selector·Spider·세션) | 라이브러리 사용법이 헷갈릴 때 |

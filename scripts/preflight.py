@@ -118,19 +118,28 @@ def check_chromium_launch():
 
 
 def check_http_fetch():
-    """가벼운 HTTP fetch (네트워크 필요). 실패는 WARN — 오프라인/방화벽일 수 있음."""
+    """HTTP 검사. CA 파일 오류는 FAIL, 네트워크 실패는 WARN으로 보고한다."""
+    from utils import plain_get
+
     try:
-        from scrapling.fetchers import Fetcher
-        page = Fetcher().get("https://httpbin.org/html")
+        page = plain_get("https://httpbin.org/html")
         status = getattr(page, "status", None)
         if status == 200:
             record("CORE", "PASS", "HTTP fetch (httpbin)", "status 200")
         else:
             record("CORE", "WARN", "HTTP fetch (httpbin)", f"status={status}")
+        return True
     except Exception as e:
+        from curl_cffi import CurlError
+        if isinstance(e, CurlError) and e.code == 77:
+            record("CORE", "FAIL", "HTTP fetch (httpbin)",
+                   "CA 번들 파일을 읽지 못했습니다",
+                   "CURL_CA_BUNDLE 또는 인증서 파일 경로와 읽기 권한을 확인하세요")
+            return False
         record("CORE", "WARN", "HTTP fetch (httpbin)",
                f"네트워크 제한 가능: {str(e).splitlines()[0][:60]}",
                "오프라인/방화벽이면 정상. 연결 확인 후 재시도")
+        return True
 
 
 # ------------- AGENT-BROWSER -------------
@@ -196,7 +205,7 @@ def main():
     core_ok &= check_fetchers()
     core_ok &= check_chromium_launch()
     if not args.no_network:
-        check_http_fetch()  # WARN-only
+        core_ok &= check_http_fetch()
 
     ab_ok = True
     if not args.core_only:
