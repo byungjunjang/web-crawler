@@ -229,6 +229,7 @@ result.items.to_json("./output/raw_data.json", indent=True)
 HTML 문자열을 직접 파싱. 셀렉터 자가 치유에 사용.
 
 ```python
+from pathlib import Path
 from scrapling.parser import Adaptor
 
 html = "<div class='item'><h2>Product</h2></div>"
@@ -237,14 +238,22 @@ adaptor = Adaptor(html, url="https://example.com")
 # CSS 셀렉터
 items = adaptor.css("div.item h2")
 
-# auto_save: 셀렉터 핑거프린트 저장
-items = adaptor.css("div.item", auto_save=True,
-    storage_args={"storage_file": "./fingerprints/elements_storage.db"})
+Path("./fingerprints").mkdir(exist_ok=True)
 
-# adaptive: 셀렉터 변경 시 자동 복구
-items = adaptor.css("div.item", adaptive=True, auto_save=True,
-    storage_args={"storage_file": "./fingerprints/elements_storage.db"})
+# 자가 치유는 생성자에서 켠다 — storage_args 는 .css() 인자가 아니다 (0.4.x: TypeError)
+adaptor = Adaptor(html, url="https://example.com", adaptive=True,
+    storage_args={"storage_file": "./fingerprints/elements_storage.db",
+                  "url": "https://example.com"})   # url 이 없으면 도메인 구분 없이 'default' 버킷
+
+# auto_save: 셀렉터 핑거프린트 저장
+items = adaptor.css("div.item", auto_save=True)
+
+# adaptive: 셀렉터 변경 시 저장된 핑거프린트로 자동 복구
+items = adaptor.css("div.item", adaptive=True, auto_save=True)
 ```
+
+`Adaptor` 는 `Selector` 의 별칭이다(`scrapling/parser.py` 끝의 `Adaptor = Selector`). 생성자에
+`adaptive=True` 가 없으면 `.css(auto_save=True)`/`adaptive=True` 는 경고만 남기고 무시된다.
 
 ---
 
@@ -252,19 +261,44 @@ items = adaptor.css("div.item", adaptive=True, auto_save=True,
 
 Scrapling의 핵심 기능. 셀렉터가 변경되어도 핑거프린트 기반으로 자동 복구.
 
-```python
-# 첫 수집: 핑거프린트 저장
-page = fetcher.get(url)
-items = page.css("<SELECTOR>", auto_save=True,
-    storage_args={"storage_file": "./fingerprints/elements_storage.db"})
+> ⚠️ scrapling 0.4.x 의 `Selector.css()` 시그니처는 `(selector, identifier='', adaptive=False,
+> auto_save=False, percentage=40)` 다. **`storage_args` 를 `.css()` 에 넘기면
+> `TypeError: Selector.css() got an unexpected keyword argument 'storage_args'`** (2026-09-01
+> books.toscrape.com 실측). 저장소는 파서를 만드는 쪽에서 지정한다 — `Fetcher.configure()` 가
+> 받는 파서 인자(`huge_tree, adaptive, storage, keep_cdata, storage_args, keep_comments,
+> adaptive_domain`)에 `adaptive`/`storage_args` 가 들어 있다.
 
-# 이후 수집: 자가 치유
-page = fetcher.get(url)
-items = page.css("<SELECTOR>", adaptive=True, auto_save=True,
-    storage_args={"storage_file": "./fingerprints/elements_storage.db"})
+```python
+from pathlib import Path
+import logging
+import sqlite3
+from utils import plain_get
+
+logger = logging.getLogger(__name__)
+
+def select_items(url, selector, heal=False):
+    storage = {"storage_file": "./fingerprints/elements_storage.db", "url": url}
+    try:
+        Path("./fingerprints").mkdir(exist_ok=True)
+        page = plain_get(url, selector_config={"adaptive": True, "storage_args": storage})
+        return page.css(selector, adaptive=heal, auto_save=True)
+    except (OSError, sqlite3.Error) as exc:
+        logger.warning(f"자가치유 저장소 사용 불가, 일반 셀렉터로 계속: {exc}")
+        page = plain_get(url, selector_config={"adaptive": False})
+        return page.css(selector)
+
+# 첫 수집: 저장. 이후 수집: 저장된 핑거프린트로 재탐색.
+items = select_items("<URL>", "<SELECTOR>")
+items = select_items("<URL>", "<SELECTOR>", heal=True)
 ```
 
-핑거프린트 저장 경로: `./fingerprints/elements_storage.db`
+위 예시는 요청별 `selector_config`를 써서 전역 설정을 남기지 않는다. 디렉터리 생성·파서 초기화·첫 저장·재탐색에서 저장소 오류가 나면 자가치유를 끄고 한 번 다시 요청한다. 이 추가 요청에도 `RateLimiter`를 적용한다. 네트워크 오류와 잘못된 셀렉터는 상위 수집 루프에서 처리한다.
+
+
+- 핑거프린트 저장 경로: `./fingerprints/elements_storage.db` (sqlite, 도메인별 버킷은 `storage_args["url"]` 로 나뉜다).
+  지정하지 않으면 기본값은 site-packages 안의 `scrapling/elements_storage.db` 다.
+- 세션(`FetcherSession`/`plain_session`)은 `Fetcher.configure()` 를 읽지 않는다 —
+  `FetcherSession(selector_config={"adaptive": True, "storage_args": storage})` 로 세션에 직접 넘긴다.
 
 ---
 
@@ -304,6 +338,7 @@ plain_get → plain_session → DynamicFetcher
 
 - Scrapling Fetcher 응답에 `.json()` 메서드 존재 → FetcherSession 없이도 API JSON 파싱 가능
 - `Fetcher.configure()` 는 **파서 전용**이다 — `impersonate` 등 fetch 인자를 받지 않는다(`ValueError`). 위장 기본값을 끄려면 `scripts/utils.py` 의 `plain_get()` / `plain_session()` 을 쓴다
+- 셀렉터 자가치유의 `storage_args` 는 `.css()` 인자가 아니라 파서 생성 인자다(0.4.15 실측 `TypeError`). `Fetcher.configure(adaptive=True, storage_args=...)` / `Adaptor(..., adaptive=True, storage_args=...)` / `FetcherSession(selector_config=...)` 로 지정한다 — §8 참조
 - Windows cp949 인코딩 문제: stdout에 `£` 등 특수문자 출력 시 `io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')` 필요
 - Spider 완료 시 crawldir 체크포인트를 자동 정리함
 - Spider `on_error` 시그니처: `(self, request: Request, error: Exception)` — request 인자 필요

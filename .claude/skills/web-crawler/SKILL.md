@@ -437,7 +437,7 @@ Step 3에서 결정한 전략에 맞는 코드 패턴을 `references/fetcher-pat
 - `scripts/export_excel.py`를 import하여 엑셀 출력
 - `scripts/chrome_cdp.py`는 `antibot_strategy: chrome_cdp`(사다리 6단)로 기록된 도메인에서 사용 — 통지 게이트를 이미 넘은 경우
 - 수집 스크립트는 해당 작업의 출력 디렉터리 하에서 작업 (`references/output-layout.md` 참조)
-- 셀렉터 핑거프린트는 `storage_args={"storage_file": "./fingerprints/elements_storage.db"}` 경로 사용
+- 셀렉터 핑거프린트 저장소는 파서 생성 시 `selector_config` 또는 `Fetcher.configure()`로 지정한다. `.css()`에는 `storage_args`를 넘기지 않는다 (아래 「셀렉터 자가 치유」 참조).
 - **수집 성공 후 반드시 profile.json save/갱신** — 새로 알아낸 endpoint/selector/notes는 누적, `last_used`만 업데이트하지 말 것 (Step 5-A 게이트)
 - **새 도메인이면 `python scripts/sync_domain_list.py` 실행** — CLAUDE.md/README.md의 "알려진 도메인" 목록은 profile.json에서 생성된다. 손으로 고치지 말 것 (`scripts/test_sync_domain_list.py`가 어긋남을 잡는다)
 
@@ -455,15 +455,44 @@ output/<도메인>/<주제_YYYYMMDD_HHMMSS>/
 
 ### 셀렉터 자가 치유
 
-```python
-# 첫 수집: 핑거프린트 저장
-items = page.css("<SELECTOR>", auto_save=True,
-    storage_args={"storage_file": "./fingerprints/elements_storage.db"})
+> **`storage_args` 는 `.css()` 인자가 아니다.** requirements.txt 가 고정한 scrapling 0.4.x 의
+> `Selector.css(selector, identifier, adaptive, auto_save, percentage)` 에 그런 키워드가 없어
+> `TypeError: Selector.css() got an unexpected keyword argument 'storage_args'` 로 죽는다
+> (2026-09-01 books.toscrape.com 실측). 저장소 경로는 **파서를 만드는 쪽** — `Fetcher.configure()`
+> (파서 전용 configure 가 바로 이 용도다) 또는 `Adaptor(...)` 생성자 — 에서 `adaptive=True` 와
+> 함께 지정한다. 생성 시 `adaptive=True` 가 없으면 `auto_save`/`adaptive` 는 경고만 남기고 무시된다.
 
-# 이후: 자가 치유
-items = page.css("<SELECTOR>", adaptive=True, auto_save=True,
-    storage_args={"storage_file": "./fingerprints/elements_storage.db"})
+```python
+from pathlib import Path
+import logging
+import sqlite3
+from utils import plain_get
+
+logger = logging.getLogger(__name__)
+
+def select_items(url, selector, heal=False):
+    storage = {"storage_file": "./fingerprints/elements_storage.db", "url": url}
+    try:
+        Path("./fingerprints").mkdir(exist_ok=True)
+        page = plain_get(url, selector_config={"adaptive": True, "storage_args": storage})
+        return page.css(selector, adaptive=heal, auto_save=True)
+    except (OSError, sqlite3.Error) as exc:
+        logger.warning(f"자가치유 저장소 사용 불가, 일반 셀렉터로 계속: {exc}")
+        page = plain_get(url, selector_config={"adaptive": False})
+        return page.css(selector)
+
+# 첫 수집: 저장. 이후 수집: 저장된 핑거프린트로 재탐색.
+items = select_items("<URL>", "<SELECTOR>")
+items = select_items("<URL>", "<SELECTOR>", heal=True)
 ```
+
+위 예시는 요청별 `selector_config`를 써서 전역 설정을 남기지 않는다. 디렉터리 생성·파서 초기화·첫 저장·재탐색에서 저장소 오류가 나면 자가치유를 끄고 한 번 다시 요청한다. 이 추가 요청에도 `RateLimiter`를 적용한다. 네트워크 오류와 잘못된 셀렉터는 상위 수집 루프에서 처리한다.
+
+
+- 경로를 지정하지 않으면 기본값은 site-packages 안의 `scrapling/elements_storage.db` 다 — 가상환경을
+  지우면 핑거프린트도 사라지므로 반드시 `./fingerprints/` 로 지정한다.
+- **세션(`plain_session`/`FetcherSession`)은 `Fetcher.configure()` 를 읽지 않는다** — 세션 자체에
+  `plain_session(selector_config={"adaptive": True, "storage_args": storage})` 로 넘긴다.
 
 ---
 
