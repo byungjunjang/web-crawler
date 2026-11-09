@@ -6,6 +6,15 @@
 
 ---
 
+## 호스트 진입점
+
+- Claude Code / Claude Cowork는 `.claude/skills/web-crawler` 정본을 사용한다.
+- Codex는 `AGENTS.md`와 `.agents/skills/web-crawler`를 사용한다. ChatGPT Work 로컬도 `AGENTS.md`의 같은 경로를 따른다.
+- `.agents/skills`와 `.codex/skills`는 생성물이다. 정본을 수정한 뒤 `python scripts/sync_codex_mirror.py`로 함께 재생성한다.
+- 로컬 `.venv`·브라우저·CDP가 필요한 수집은 해당 도구에 접근할 수 있는 로컬 실행 환경에서 수행한다.
+
+---
+
 ## 최초 환경 셋업 (클론 직후 1회, 수집 전 확인)
 
 수집 시도 전에 환경을 준비한다. **한 명령**으로 단계별 설치+검증(이미 된 단계는 skip):
