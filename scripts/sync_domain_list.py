@@ -24,6 +24,13 @@ from pathlib import Path
 
 from profile_policy import is_distributable, public_dirs
 
+# Windows에서 한글과 em dash를 포함한 검사 결과를 출력한다.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 # scripts/sync_domain_list.py: parents[0]=scripts [1]=repo root
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FINGERPRINTS = REPO_ROOT / "fingerprints"
