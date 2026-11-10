@@ -37,7 +37,14 @@
         "추정가격": "prspPrce",
         "배정예산": "alotBgtAmt",
         "낙찰방법": "scsbdMthdNm",
-        "공고상태": "pbancSttsNm"
+        "공고상태": "pbancSttsNm",
+        "입찰마감일시": "pbancPstgDt (<br/> 뒤 괄호 안)"
+      },
+      "date_params": {
+        "from": "dlBidPbancLstM.fromBidDt",
+        "to": "dlBidPbancLstM.toBidDt",
+        "format": "YYYYMMDD",
+        "ui_default": "1개월"
       }
     }
   ],
@@ -59,8 +66,9 @@
     "2026-03-31 교량 키워드 203건 수집 검증 완료",
     "2026-05-14 교량 키워드 1개월 146건 수집 (전체 146건 중 필터) — wait_for_selector(검색버튼, 60s) 보강 후 성공",
     "2026-07-17 함정/경비함/예인선 3키워드 1개월 수집: 최종 35건 (dedup). 키워드는 payload bidPbancNm 치환으로 다중검색, 공고번호 기준 dedup — '경비함정'이 함정·경비함 양쪽에 걸림. POST는 Scrapling FetcherSession(캡처 쿠키/헤더 재사용)",
-    "2026-07-21 함정/경비함/예인선 3키워드 1개월 수집: 최종 32건 (dedup). 키워드는 payload bidPbancNm 치환으로 다중검색, 공고번호 기준 dedup — '경비함정'이 함정·경비함 양쪽에 걸림. POST는 Scrapling FetcherSession(캡처 쿠키/헤더 재사용)"
+    "2026-07-21 함정/경비함/예인선 3키워드 1개월 수집: 최종 32건 (dedup). 키워드는 payload bidPbancNm 치환으로 다중검색, 공고번호 기준 dedup — '경비함정'이 함정·경비함 양쪽에 걸림. POST는 Scrapling FetcherSession(캡처 쿠키/헤더 재사용)",
+    "2026-10-26 '정산용역' 최근 3년 수집: 249건. 기간은 payload fromBidDt/toBidDt 를 30일 창으로 바꿔가며 반복(창당 최대 17건). 응답에 totCnt 가 없어(0으로 읽힘) 페이지 종료는 len(result) < pageSize 로 판정. 값이 HTML 이스케이프돼 옴(&#40; &lt;br/&gt;) — html.unescape 후 태그 제거, pbancPstgDt 는 '게시<br/>(마감)' 형태. 추정가격은 민간·조합 공고 등에서 공란(약 14%)."
   ],
-  "last_used": "2026-07-21",
+  "last_used": "2026-10-26",
   "verified_date": "2026-03-31"
 }
