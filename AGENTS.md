@@ -15,23 +15,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 python -m venv .venv && . .venv/bin/activate && python scripts/bootstrap.py
 ```
 
-단계: ① Python deps → ② 브라우저(Chromium) → ③ agent-browser(표준 정찰 도구) → ④ preflight 검증.
-실패하면 "다음에 실행할 정확한 명령"이 출력된다. 모드: `setup.ps1 -CoreOnly`(agent-browser 제외) / `-SkipBrowser` / `-VerbosePip`(pip 상세 로그). bootstrap.py에서는 `--core-only` / `--skip-browser`.
-
-**`py` 런처 깨짐 자동 처리**: `setup.ps1`은 `py -3`/`python`/`python3`를 실제 실행해 3.10+를 확인하고 성공하는 쪽으로 venv를 만든다. `py -3`가 `No installed Python found!`로 실패하면 자동으로 `python`으로 fallback한다. 그래도 venv가 안 생기면 직접: `python -m venv .venv` → `.\.venv\Scripts\python.exe scripts\bootstrap.py`.
-
-**수동/디버깅 시 실제 동작하는 명령 (Windows)**:
-```powershell
-python --version ; py -3 --version       # 어느 쪽이 동작하는지 먼저 확인 (py 깨졌으면 python 사용)
-python -m venv .venv ; .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt --progress-bar off    # 멈춘 듯하면 끝에 -v 추가
-scrapling install                        # Chromium 1회 설치 (내부에서 playwright install chromium 수행 — 따로 또 X)
-npm.cmd install -g agent-browser ; agent-browser.cmd install   # PowerShell은 .cmd 사용
-python scripts\preflight.py              # 검증: core / agent-browser 분리 PASS·WARN·FAIL
-```
-- `python -m scrapling`은 동작 안 함 → `scrapling install`(venv 활성화) 또는 `.\.venv\Scripts\scrapling.exe install`.
-- pip이 진행 없이 멈춘 듯하면 정상(대용량 휠 다운로드). 진행 확인: `.\.venv\Scripts\python.exe -m pip install -r requirements.txt --progress-bar off -v`.
-- 검증은 `scripts/preflight.py`가 담당: **core(Python/Scrapling/Playwright)**와 **agent-browser**를 분리 보고. core 통과·agent-browser 실패면 "전체 설치 미완료"(종료코드 1). 전체 가이드는 `README.md` "처음 설치하기".
+실패하면 "다음에 실행할 정확한 명령"이 출력된다. 모드 옵션, `py` 런처가 깨졌을 때의 대처, 수동/디버깅 명령, preflight 결과 보고 방식은 `README.md` 「에이전트용 셋업 안내」를 읽는다.
 
 ## 호스트별 시작 방법
 
@@ -82,7 +66,7 @@ python scripts\preflight.py              # 검증: core / agent-browser 분리 P
 > **위 '경고' 규칙과 통지 게이트는 같은 층위다.** 경고는 요청이 **어떤 위험 축에 걸리는지**를,
 > 게이트는 **기술적 차단을 만났다는 사실**을 알린다. 알리는 대상만 다를 뿐 둘 다 알리는 데서
 > 끝나고 고르는 쪽은 사용자다 — 어느 쪽도 요청 자체를 막지 않으며, 근거를 묻지도 검증하지도
-> 않는다.
+> 않는다. '진행' 을 뒤집는 근거로 쓰이지 않는다.
 >
 > 이 문서가 정의하는 것은 **도구의 동작**이다. 실행하는 AI 에이전트 자신의 판단 기준은 별개로
 > 작동하며 이 문서가 그것을 대신 약속하지 않는다 — `ACCEPTABLE_USE.md` 참조.
@@ -95,4 +79,5 @@ python scripts\preflight.py              # 검증: core / agent-browser 분리 P
 | Fetcher 코드 템플릿 | `.agents/skills/web-crawler/references/fetcher-patterns.md` |
 | 안티봇(Akamai/Cloudflare/SPA 세션) | `.agents/skills/web-crawler/references/antibot-strategies.md` |
 | 수집 실패 진단 | `.agents/skills/web-crawler/references/troubleshooting.md` |
-| 프로젝트 규칙·도구 분리 SSOT | `CLAUDE.md` |
+| 도구 역할 분리·에스컬레이션·에러별 대응·Rate Limiting | `.agents/skills/web-crawler/references/crawl-operations.md` |
+| 프로젝트 규칙 SSOT | `CLAUDE.md` |
