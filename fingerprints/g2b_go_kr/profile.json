@@ -37,7 +37,70 @@
         "추정가격": "prspPrce",
         "배정예산": "alotBgtAmt",
         "낙찰방법": "scsbdMthdNm",
-        "공고상태": "pbancSttsNm"
+        "공고상태": "pbancSttsNm",
+        "입찰마감일시": "pbancPstgDt (<br/> 뒤 괄호 안)"
+      },
+      "date_params": {
+        "from": "dlBidPbancLstM.fromBidDt",
+        "to": "dlBidPbancLstM.toBidDt",
+        "format": "YYYYMMDD",
+        "ui_default": "1개월"
+      }
+    },
+    {
+      "name": "개찰결과 목록 (개찰결과분류조회)",
+      "url": "https://www.g2b.go.kr/pb/pbo/pboc/OnbsRslt/selectOnbsRsltClsfList.do",
+      "method": "POST",
+      "required_headers": {
+        "submissionid": "mf_wfm_container_selectOnbsRsltClsfList",
+        "menu-info": "{\"menuNo\":\"01522\",\"menuCangVal\":\"PBOC006_01\",\"bsneClsfCd\":\"%EC%97%85130028\",\"scrnNo\":\"02117\"}",
+        "target-id": "btnS0001",
+        "usr-id": "null"
+      },
+      "payload_root": "dlSrchOnbsRsltClsfListInM",
+      "params": {
+        "keyword": "bidPbancNm",
+        "date_from": "onbsYmdStr",
+        "date_to": "onbsYmdEnd",
+        "first": "firstIndex",
+        "last": "lastIndex"
+      },
+      "response_path": "result.onbsRsltClsfList",
+      "field_mapping": {
+        "공고번호": "bidPbancNoPbancOrd",
+        "공고명": "bidPbancNm",
+        "수요기관": "dmstGrpNm",
+        "개찰일시": "onbsPrnmntDt",
+        "진행상태": "bidPgstCd"
+      }
+    },
+    {
+      "name": "복수예비가격 및 예정가격 (개찰결과 상세 팝업)",
+      "url": "https://www.g2b.go.kr/pb/pbo/pboc/OnbsRslt/selectRsvePrceInfo.do",
+      "method": "POST",
+      "required_headers": {
+        "submissionid": "mf_wfm_container_RsvePrceCmpuRsltPL_wframe_popupCnts_selectRsvePrceInfo",
+        "menu-info": "{\"menuNo\":\"01558\",\"menuCangVal\":\"PBOC024_01\",\"bsneClsfCd\":\"%EC%97%85130028\",\"scrnNo\":\"04255\"}",
+        "target-id": "godsBtnRsvePrce",
+        "usr-id": "null"
+      },
+      "payload": {
+        "dlSrchPbancInfoInM": {
+          "bidPbancNo": "<목록>",
+          "bidPbancOrd": "<목록>",
+          "bidClsfNo": "<목록>",
+          "bidPrgrsOrd": "<목록>",
+          "prcmBsneSeCd": "<목록>",
+          "blffVrfcYn": ""
+        }
+      },
+      "field_mapping": {
+        "기초금액": "bsisAmtInfo.bsamt",
+        "예정가격": "bsisAmtInfo.pnpr",
+        "예가방식": "pbancInfo.pnprDcsnMthoNm",
+        "낙찰방법": "pbancInfo.scsbdMthdNm",
+        "공고기관": "pbancInfo.pbancInstUntyGrpNm",
+        "복수예비가격": "rsvePrceList"
       }
     }
   ],
@@ -47,7 +110,9 @@
     "페이지크기_select": "#mf_wfm_container_tacBidPbancLst_contents_tab2_body_sbxRecordCountPerPage1",
     "검색버튼": "#mf_wfm_container_tacBidPbancLst_contents_tab2_body_btnS0004",
     "입찰메뉴": "a#[id*=\"gnbMenu\"] text:\"입찰\"",
-    "입찰공고목록_링크": "a text:\"입찰공고목록\""
+    "입찰공고목록_링크": "a text:\"입찰공고목록\"",
+    "개찰결과분류조회_메뉴": "#mf_wfm_gnb_wfm_gnbMenu_genDepth1_1_genDepth2_4_genDepth3_0_btn_menuLvl3",
+    "개찰결과_검색버튼": "#mf_wfm_container_btnS0001"
   },
   "notes": [
     "WebSquare SPA — 팝업이 클릭 이벤트를 막으므로 Escape + display:none으로 먼저 닫아야 함",
@@ -59,8 +124,10 @@
     "2026-03-31 교량 키워드 203건 수집 검증 완료",
     "2026-05-14 교량 키워드 1개월 146건 수집 (전체 146건 중 필터) — wait_for_selector(검색버튼, 60s) 보강 후 성공",
     "2026-07-17 함정/경비함/예인선 3키워드 1개월 수집: 최종 35건 (dedup). 키워드는 payload bidPbancNm 치환으로 다중검색, 공고번호 기준 dedup — '경비함정'이 함정·경비함 양쪽에 걸림. POST는 Scrapling FetcherSession(캡처 쿠키/헤더 재사용)",
-    "2026-07-21 함정/경비함/예인선 3키워드 1개월 수집: 최종 32건 (dedup). 키워드는 payload bidPbancNm 치환으로 다중검색, 공고번호 기준 dedup — '경비함정'이 함정·경비함 양쪽에 걸림. POST는 Scrapling FetcherSession(캡처 쿠키/헤더 재사용)"
+    "2026-07-21 함정/경비함/예인선 3키워드 1개월 수집: 최종 32건 (dedup). 키워드는 payload bidPbancNm 치환으로 다중검색, 공고번호 기준 dedup — '경비함정'이 함정·경비함 양쪽에 걸림. POST는 Scrapling FetcherSession(캡처 쿠키/헤더 재사용)",
+    "2026-10-26 '정산용역' 최근 3년 수집: 249건. 기간은 payload fromBidDt/toBidDt 를 30일 창으로 바꿔가며 반복(창당 최대 17건). 응답에 totCnt 가 없어(0으로 읽힘) 페이지 종료는 len(result) < pageSize 로 판정. 값이 HTML 이스케이프돼 옴(&#40; &lt;br/&gt;) — html.unescape 후 태그 제거, pbancPstgDt 는 '게시<br/>(마감)' 형태. 추정가격은 민간·조합 공고 등에서 공란(약 14%).",
+    "2026-11-23 '정산용역' 3년 개찰결과 192건 → 최종사정률(예정가격/기초금액) 30건 통계. 개찰결과분류조회 화면의 공고명 입력칸 id 는 wq_uuid_* 로 매번 바뀜 — 키워드는 payload bidPbancNm 에 직접 넣을 것(입력 실패 시 필터 없이 한 달 수만 건이 나온다; 첫 실행에서 실제로 발생). 사정률은 복수예가 건만 존재 — 정산용역은 비예가 협상계약이 대부분(189건 중 비예가 127·단일예가 28·복수예가 34, 복수예가 중 유찰 4건은 예정가격 없음). 상세 API 는 일부 건에서 HTTP 422(3건) — 건너뛰어도 됨. 공고자 필터 필드는 목록 payload 에 없음 — 상세 pbancInstUntyGrpNm 로 후처리."
   ],
-  "last_used": "2026-07-21",
+  "last_used": "2026-11-23",
   "verified_date": "2026-03-31"
 }
