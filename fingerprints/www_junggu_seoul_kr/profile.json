@@ -1,0 +1,29 @@
+{
+  "domain": "www.junggu.seoul.kr",
+  "capability": "static",
+  "fetcher_type": "FetcherSession",
+  "antibot_type": "none",
+  "antibot_strategy": "none",
+  "site_type": "static",
+  "selectors": {
+    "보도자료_목록_행": "table tbody tr  (p.title a 가 있는 행만)",
+    "번호/담당부서/보도일/조회수": "tr td  →  [0]번호 [1]제목 [2]담당부서 [3]보도일 [4]조회수(쉼표 포함)",
+    "제목·상세링크": "p.title a::text / ::attr(href)  (href 의 cid= 가 글 ID)",
+    "상세_본문": "td.view_txt 안쪽 HTML 을 <br> 로 쪼갠 줄들. 맨 위 2줄 정도는 큰 제목(마침표 없음), 그다음 'ㅇ' 소제목(띄어쓰기 없이 붙기도 함), 그다음 '서울 중구(구청장 …)는 …' 첫 문단",
+    "상세_분류": "정규식 <th scope=\"row\">분류</th>\\s*<td[^>]*>(.*?)</td>  (빈 칸인 글이 있다 — 3년 행사 283건 중 7건)"
+  },
+  "pagination": {
+    "type": "query_param",
+    "url_template": "https://www.junggu.seoul.kr/content.do?cmsid=14390&page={page}",
+    "items_per_page": 10,
+    "page_starts_at": 1,
+    "total_pages": 665
+  },
+  "api_endpoints": [
+    "목록: /content.do?cmsid=14390&page={n}",
+    "상세: /content.do?cmsid=14390&mode=view&cid={cid}",
+    "게시판 검색(제목+본문): /content.do?cmsid=14390&searchField=all&searchValue={검색어}"
+  ],
+  "notes": "중구청 보도자료 게시판(cmsid=14390) — SSR 정적 HTML, 봇 차단 없음, plain_session 2단으로 끝. ★ TLS: 서버가 중간 인증서(GlobalSign GCC R6 AlphaSSL CA 2025)를 안 보내 curl/Scrapling 은 'unable to get local issuer certificate' 로 실패한다(차단 아님). 검증을 끄지 말고 certifi 번들 + 그 중간 인증서를 합친 파일을 verify= 로 넘긴다 — 중간 인증서는 output/www.junggu.seoul.kr/globalsign_alphassl_ca_2025.pem (만료 2027-05-21, 서버 인증서는 2026-12-18 만료라 교체 시 다시 확인). Windows Invoke-WebRequest 는 중간 인증서를 스스로 받아 와서 그냥 열린다. robots.txt 는 /content.do?cmsid=14232 와 /search 만 Disallow — 보도자료는 허용. /search(통합검색)는 막혀 있으니 검색은 게시판 자체의 searchField/searchValue 를 쓴다. 담당부서 칸에 사무실 전화번호(3396-xxxx)가 붙어 detect_pii 가 경고하지만 개인 번호가 아니라 부서 대표번호다. 원문은 공공누리 '출처표시+상업적이용금지+변경금지'. 2026-11-14 실측: 최근 3년(2023-11-15~) 1,748건 = 1~175쪽, delay 1.5s 로 약 5분, 번호 연속·빈값 0. 상세 메모: 'ㅇ' 소제목은 2025년 이후 글엔 대부분 있고 2024년 글엔 없는 경우가 많다(행사 283건 중 71건 없음 — 누락 아님). 첫 문단은 마침표로 끝나는 첫 긴 줄을 고른다 — 본문 위 큰 제목 재기재를 피하려고. ★ curl 은 한글이 든 경로의 CA 파일을 못 연다(error 77) — CA 번들은 output/www.junggu.seoul.kr/ca_bundle.pem 같은 영문 경로에 둔다. 상세 283건 delay 1.5s 약 7분.",
+  "last_used": "2026-11-14"
+}
